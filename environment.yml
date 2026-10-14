@@ -190,4 +190,3 @@ dependencies:
       - xxhash==3.6.0
       - yacs==0.1.8
       - yarl==1.22.0
-prefix: /egr/research-actionlab/guowenli/miniconda3/envs/ED

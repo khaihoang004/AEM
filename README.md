@@ -4,6 +4,8 @@
 
 [Wenliang Guo](https://wenliangguo.github.io/), [Yujiang Pu](https://www.yujiangpu.com/), [Yu Kong](https://www.egr.msu.edu/~yukong/).
 
+🔥 **Update**: [10/14/2026] We fixed several bugs in the released code and uploaded new checkpoints for EgoPER and CaptainCook4D.
+
 🔥 **Update**: [07/07/2026] We included data preparation into this repository, including the code for object detection, scene-graph generation and feature extraction.
 
 🔥 **Update**: [07/04/2026] We included CaptainCook4D dataset into this repository, including the code for data preparation, model training and evaluation.
@@ -32,7 +34,7 @@ This environment is configured for our server with an NVIDIA RTX A6000 GPU; it p
 Option 2: Manual configuration. If Option 1 does not work on your machine, manually install the following main packages and others as needed:
 
 - Python: 3.10
-- PyTorch and CUDA: refer to the [official link](https://pytorch.org/get-started/previous-versions/) to find a compatible version. We strongly recommend PyTorch 1.x, as PyTorch 2.x may cause errors.
+- PyTorch and CUDA: refer to the [official link](https://pytorch.org/get-started/previous-versions/) to find a compatible version. The code is tested with PyTorch 1.13.0 (Option 1) and PyTorch 2.5.1.
 - Main packages:
 
 ```
@@ -129,10 +131,10 @@ Repeat for the other tasks (`oatmeal`, `pinwheels`, `quesadilla`, `tea`). Checkp
 
 ### CaptainCook4D
 
-Select the task with `dataset.task` in `configs/ccp4d.yaml` (recipe ids are listed in `data/captaincook4d/id_activity_mapping.json`; `task: '0'` pools all recipes).
+Select the task with `dataset.task` in `configs/ccp4d.yaml`, or pass it with `--task` (recipe ids are listed in `data/captaincook4d/id_activity_mapping.json`; `task: '0'` pools all recipes).
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python train.py configs/ccp4d.yaml --output exp_name
+CUDA_VISIBLE_DEVICES=0 python train.py configs/ccp4d.yaml --task 1 --output exp_name
 ```
 
 Repeat for each task separately. Checkpoints are saved to `checkpoints/ccp4d/<config>_<exp_name>/` (set by `output_folder` in the config).
@@ -173,10 +175,10 @@ AEM/checkpoints/ccp4d/
 ├── ...
 ```
 
-Evaluate a recipe (without `--use_gcn`). Set `dataset.task` in `configs/ccp4d.yaml` to the recipe id that matches the checkpoint:
+To evaluate a checkpoint, either set `dataset.task` in `configs/ccp4d.yaml` to the recipe id that matches the checkpoint, or pass it on the command line with `--task`:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python eval.py configs/ccp4d.yaml checkpoints/ccp4d/recipe_1_MicrowaveEggSandwich.pth.tar
+CUDA_VISIBLE_DEVICES=0 python eval.py configs/ccp4d.yaml checkpoints/ccp4d/recipe_1_MicrowaveEggSandwich.pth.tar --task 1
 ```
 
 ## Citation

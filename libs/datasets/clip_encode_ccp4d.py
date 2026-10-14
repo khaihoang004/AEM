@@ -7,7 +7,6 @@ directly from the frame images referenced by the open-set detection json (``img_
 import os
 
 import cv2 as cv
-import numpy as np
 import torch
 from PIL import Image
 from torchvision.ops import box_convert

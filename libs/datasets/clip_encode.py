@@ -1,5 +1,4 @@
 import torch
-import cv2 as cv
 import numpy as np
 from torchvision.ops import box_convert
 from PIL import Image
@@ -16,8 +15,6 @@ def encode_image(clip, image, device):
 def get_global_vis_embedding(clip_model, vlm_info, effect_frame_dict, device):
     clip, _, preprocess = clip_model
     frame_path = vlm_info["img_path"]
-    # image = cv.imread(frame_path)
-    # image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
     image = effect_frame_dict[frame_path]
     if isinstance(image, np.ndarray):
         image = Image.fromarray(image)
@@ -29,8 +26,6 @@ def get_obj_vis_embedding(clip_model, vlm_info, effect_frame_dict, device):
     frame_path = vlm_info["img_path"]
     object_a_bbox = torch.tensor(vlm_info["BBox of OBJECT A"]["bbox"]).float()
     object_b_bbox = torch.tensor(vlm_info["BBox of OBJECT B"]["bbox"]).float()
-    # image = cv.imread(frame_path)
-    # image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
     image = effect_frame_dict[frame_path]
     object_a = crop_image(image, object_a_bbox)
     object_b = crop_image(image, object_b_bbox)
@@ -50,12 +45,6 @@ def convert_bbox(bbox, size=(720, 1280), in_fmt="cxcywh", out_fmt="xyxy"):
     xyxy_bbox = list(map(int, xyxy_bbox))
     return xyxy_bbox
 
-def crop_resize_image(image, bbox, tar_size):
-    h, w, _ = image.shape
-    xyxy_bbox = convert_bbox(bbox, size=(h,w))
-    object = image[xyxy_bbox[1]:xyxy_bbox[3], xyxy_bbox[0]:xyxy_bbox[2]]
-    object = cv.resize(object, (tar_size, tar_size))
-    return object
 
 def crop_image(image, bbox):
     h, w, _ = image.shape

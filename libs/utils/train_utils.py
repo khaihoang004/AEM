@@ -43,12 +43,6 @@ def save_checkpoint(state, is_best, file_folder,
         torch.save(state, os.path.join(file_folder, 'model_best.pth.tar'))
 
 
-def print_model_params(model):
-    for name, param in model.named_parameters():
-        print(name, param.min().item(), param.max().item(), param.mean().item())
-    return
-
-
 def make_optimizer(model, optimizer_config):
     """create optimizer
     return a supported optimizer
@@ -122,7 +116,7 @@ def make_scheduler(
             scheduler = optim.lr_scheduler.MultiStepLR(
                 optimizer,
                 steps,
-                gamma=schedule_config["gamma"],
+                gamma=optimizer_config["schedule_gamma"],
                 last_epoch=last_epoch
             )
         else:
@@ -187,6 +181,27 @@ class ModelEma(torch.nn.Module):
         self._update(model, update_fn=lambda e, m: m)
 
 
+def _log_epoch(split, loss_meters, acc_meters, curr_epoch, tb_writer, scheduler=None):
+    """Write the epoch averages of every loss / accuracy to tensorboard and stdout."""
+    if tb_writer is not None:
+        for name, meter in {**loss_meters, **acc_meters}.items():
+            tb_writer.add_scalar(f'{split}/{name}', meter.avg, curr_epoch)
+        if scheduler is not None:
+            tb_writer.add_scalar(f'{split}/lr', scheduler.get_last_lr()[0], curr_epoch)
+
+    prefix = f"[{split.capitalize()}]: Epoch {curr_epoch}"
+    loss_print = ", ".join(f"{name}={meter.avg:.3f}" for name, meter in loss_meters.items())
+    acc_print = ", ".join(f"{name}={meter.avg:.3f}" for name, meter in acc_meters.items())
+    print(f"{prefix}\n{loss_print}\n{acc_print}")
+
+
+def _update_meters(loss_meters, acc_meters, losses, topk_acc):
+    for name, value in losses.items():
+        loss_meters.setdefault(name, AverageMeter()).update(float(value))
+    for name, value in topk_acc.items():
+        acc_meters.setdefault(name, AverageMeter()).update(float(value))
+
+
 def train_one_epoch(
     train_loader,
     action_tokens,
@@ -201,24 +216,14 @@ def train_one_epoch(
     tb_writer = None
 ):
     """Training the model for one epoch"""
-    cls_loss_meter = AverageMeter()
-    reg_loss_meter = AverageMeter()
-    tot_loss_meter = AverageMeter()
-    action_contrast_loss_meter = AverageMeter()
-    action_contrast_top1_acc_meter = AverageMeter()
-    action_contrast_top3_acc_meter = AverageMeter()
-    action_contrast_top5_acc_meter = AverageMeter()
-    img_graph_rel_loss_meter = AverageMeter()
-    img_graph_stt_loss_meter = AverageMeter()
-    effect_rel_loss_meter = AverageMeter()
-    effect_stt_loss_meter = AverageMeter()
+    loss_meters, acc_meters = {}, {}
 
     model.train()
     for iter_idx, video_list in enumerate(train_loader, 0):
         optimizer.zero_grad(set_to_none=True)
         losses, topk_acc = model(
             clip_model=clip_model,
-            video_list=video_list, 
+            video_list=video_list,
             action_tokens=action_tokens,
             cur_epoch=curr_epoch,
             tot_epoch=tot_epoch
@@ -236,42 +241,11 @@ def train_one_epoch(
             model_ema.update(model)
 
         torch.cuda.synchronize()
-        ## update meters
-        cls_loss_meter.update(losses['cls_loss'].item())
-        reg_loss_meter.update(losses['reg_loss'].item())
-        action_contrast_loss_meter.update(losses['action_contrast_loss'].item())
-        tot_loss_meter.update(losses['final_loss'].item())
-        action_contrast_top1_acc_meter.update(topk_acc['action_top1_acc'].item())
-        action_contrast_top3_acc_meter.update(topk_acc['action_top3_acc'].item())
-        action_contrast_top5_acc_meter.update(topk_acc['action_top5_acc'].item())
+        _update_meters(loss_meters, acc_meters, losses, topk_acc)
 
-        img_graph_rel_loss_meter.update(losses['rel_contrast_loss'].item())
-        img_graph_stt_loss_meter.update(losses['stt_contrast_loss'].item())
-        effect_rel_loss_meter.update(losses['effect_rel_contrast_loss'].item())
-        effect_stt_loss_meter.update(losses['effect_stt_contrast_loss'].item())
-    
-    if tb_writer is not None:
-        tb_writer.add_scalar('train/cls_loss', cls_loss_meter.avg, curr_epoch)
-        tb_writer.add_scalar('train/reg_loss', reg_loss_meter.avg, curr_epoch)
-        tb_writer.add_scalar('train/tot_loss', tot_loss_meter.avg, curr_epoch)
-        tb_writer.add_scalar('train/action_contrast_loss', action_contrast_loss_meter.avg, curr_epoch)
-
-        tb_writer.add_scalar('train/lr', scheduler.get_last_lr()[0], curr_epoch)
-        tb_writer.add_scalar('train/action_top1_acc', action_contrast_top1_acc_meter.avg, curr_epoch)
-        tb_writer.add_scalar('train/action_top3_acc', action_contrast_top3_acc_meter.avg, curr_epoch)
-        tb_writer.add_scalar('train/action_top5_acc', action_contrast_top5_acc_meter.avg, curr_epoch)
-
-        tb_writer.add_scalar('train/img_graph_relation_loss', img_graph_rel_loss_meter.avg, curr_epoch)
-        tb_writer.add_scalar('train/img_graph_state_loss', img_graph_stt_loss_meter.avg, curr_epoch)
-        tb_writer.add_scalar('train/effect_relation_loss', effect_rel_loss_meter.avg, curr_epoch)
-        tb_writer.add_scalar('train/effect_state_loss', effect_stt_loss_meter.avg, curr_epoch)
-
-    prefix = f"[Train]: Epoch {curr_epoch}"
-    loss_print = f"tot_loss={tot_loss_meter.avg:.3f}, cls_loss={cls_loss_meter.avg:.3f}, reg_loss={reg_loss_meter.avg:.3f}"    
-    acc_print = f"action_top1_acc={action_contrast_top1_acc_meter.avg:.3f}, action_top3_acc={action_contrast_top3_acc_meter.avg:.3f}, action_top5_acc={action_contrast_top5_acc_meter.avg:.3f}"
-    print(f"{prefix}\n{loss_print}\n{acc_print}")
-
+    _log_epoch('train', loss_meters, acc_meters, curr_epoch, tb_writer, scheduler)
     return model_ema
+
 
 def valid_one_epoch(
     val_loader,
@@ -282,60 +256,26 @@ def valid_one_epoch(
     tot_epoch,
     tb_writer = None
 ):
-    """Validate the model for one epoch"""
-    cls_loss_meter = AverageMeter()
-    reg_loss_meter = AverageMeter()
-    action_contrast_loss_meter = AverageMeter()
-    tot_loss_meter = AverageMeter()
-    action_contrast_top1_acc_meter = AverageMeter()
-    action_contrast_top3_acc_meter = AverageMeter()
-    action_contrast_top5_acc_meter = AverageMeter()
-    img_graph_rel_loss_meter = AverageMeter()
-    img_graph_stt_loss_meter = AverageMeter()
-    effect_rel_loss_meter = AverageMeter()
-    effect_stt_loss_meter = AverageMeter()
+    """Validate the model for one epoch and return the average of every loss.
+
+    Runs under no_grad and in eval mode, so it neither builds a graph nor moves the
+    model's running loss normalizer (see PtTransformer._compute_losses).
+    """
+    loss_meters, acc_meters = {}, {}
 
     model.eval()
     for iter_idx, video_list in enumerate(val_loader, 0):
-        losses, topk_acc = model(
-            clip_model=clip_model,
-            video_list=video_list, 
-            action_tokens=action_tokens,
-            cur_epoch=curr_epoch,
-            tot_epoch=tot_epoch
-        )
+        with torch.no_grad():
+            losses, topk_acc = model(
+                clip_model=clip_model,
+                video_list=video_list,
+                action_tokens=action_tokens,
+                cur_epoch=curr_epoch,
+                tot_epoch=tot_epoch
+            )
 
         torch.cuda.synchronize()
-        ## update meters
-        action_contrast_loss_meter.update(losses['action_contrast_loss'].item())
-        cls_loss_meter.update(losses['cls_loss'].item())
-        reg_loss_meter.update(losses['reg_loss'].item())
-        tot_loss_meter.update(losses['final_loss'].item())
-        action_contrast_top1_acc_meter.update(topk_acc['action_top1_acc'].item())
-        action_contrast_top3_acc_meter.update(topk_acc['action_top3_acc'].item())
-        action_contrast_top5_acc_meter.update(topk_acc['action_top5_acc'].item())
-        img_graph_rel_loss_meter.update(losses['rel_contrast_loss'].item())
-        img_graph_stt_loss_meter.update(losses['stt_contrast_loss'].item())
-        effect_rel_loss_meter.update(losses['effect_rel_contrast_loss'].item())
-        effect_stt_loss_meter.update(losses['effect_stt_contrast_loss'].item())
+        _update_meters(loss_meters, acc_meters, losses, topk_acc)
 
-    if tb_writer is not None:
-        tb_writer.add_scalar('val/cls_loss', cls_loss_meter.avg, curr_epoch)
-        tb_writer.add_scalar('val/reg_loss', reg_loss_meter.avg, curr_epoch)
-        tb_writer.add_scalar('val/tot_loss', tot_loss_meter.avg, curr_epoch)
-        tb_writer.add_scalar('val/action_contrast_loss', action_contrast_loss_meter.avg, curr_epoch)
-        tb_writer.add_scalar('val/action_top1_acc', action_contrast_top1_acc_meter.avg, curr_epoch)
-        tb_writer.add_scalar('val/action_top3_acc', action_contrast_top3_acc_meter.avg, curr_epoch)
-        tb_writer.add_scalar('val/action_top5_acc', action_contrast_top5_acc_meter.avg, curr_epoch)
-
-        tb_writer.add_scalar('val/img_graph_rel_loss', img_graph_rel_loss_meter.avg, curr_epoch)
-        tb_writer.add_scalar('val/img_graph_stt_loss', img_graph_stt_loss_meter.avg, curr_epoch)
-        tb_writer.add_scalar('val/effect_rel_loss', effect_rel_loss_meter.avg, curr_epoch)
-        tb_writer.add_scalar('val/effect_stt_loss', effect_stt_loss_meter.avg, curr_epoch)
-
-    prefix = f"[Valid]: Epoch {curr_epoch}"
-    loss_print = f"tot_loss={tot_loss_meter.avg:.3f}, cls_loss={cls_loss_meter.avg:.3f}, reg_loss={reg_loss_meter.avg:.3f}"
-    acc_print = f"action_top1_acc={action_contrast_top1_acc_meter.avg:.3f}, action_top3_acc={action_contrast_top3_acc_meter.avg:.3f}, action_top5_acc={action_contrast_top5_acc_meter.avg:.3f}"
-    print(f"{prefix}\n{loss_print}\n{acc_print}")
-    
-    return
+    _log_epoch('val', loss_meters, acc_meters, curr_epoch, tb_writer)
+    return {name: meter.avg for name, meter in loss_meters.items()}

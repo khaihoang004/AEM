@@ -137,13 +137,9 @@ def _merge(src, dst):
         else:
             dst[k] = v
 
-def load_default_config():
-    config = DEFAULTS
-    return config
 
 def _update_config(config):
     # fill in derived fields
-    # config["model"]["input_dim"] = config["dataset"]["input_dim"]
     config["model"]["num_node"] = config["dataset"]["num_node"]
     config["model"]["num_classes"] = config["dataset"]["num_classes"]
     config["model"]["max_seq_len"] = config["dataset"]["max_seq_len"]

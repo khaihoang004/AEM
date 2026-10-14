@@ -137,7 +137,7 @@ def main():
             objectA = action_objects[task][action]["objectA"]
             objectB = action_objects[task][action]["objectB"]
             seg_folder, frame = find_egoper_effect_frame(
-                os.path.join(effect_root, vid), action, time_stamp[0])
+                os.path.join(effect_root, vid), action, time_stamp)
             if seg_folder is None:
                 graphs.append(empty_scene_graph(action, action_idx, time_stamp))
                 continue

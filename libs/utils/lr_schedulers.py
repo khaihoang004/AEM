@@ -3,7 +3,6 @@ import warnings
 from collections import Counter
 from bisect import bisect_right
 
-import torch
 from torch.optim.lr_scheduler import _LRScheduler
 
 

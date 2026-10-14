@@ -66,13 +66,18 @@ class VLMFeatureProcessor:
     """Handles VLM feature extraction and processing."""
     
     @staticmethod
-    def extract_vlm_features(video_list: List[Dict], device: torch.device) -> Dict[str, torch.Tensor]:
+    def extract_vlm_features(video_list: List[Dict], device: torch.device,
+                             clip_vis_dim: int) -> Dict[str, torch.Tensor]:
         """Extract and concatenate VLM features from video list.
-        
+
         Args:
             video_list: List of dictionaries containing video data with 'visual_info' field.
+                A video without visual supervision (``visual_info`` is None, e.g. one with no
+                detections or a split for which none is loaded) contributes zero features with
+                mask False for each of its segments.
             device: Target device for tensor operations.
-            
+            clip_vis_dim: Dimension of the CLIP image features.
+
         Returns:
             Dictionary containing 'object_vis_feature', 'relative_pos_embed', 'global_vis_feature', and 'frame_contrast_mask' tensors.
         """
@@ -82,6 +87,13 @@ class VLMFeatureProcessor:
         all_contrast_mask = []
 
         for vid_feat_dict in video_list:
+            if vid_feat_dict['visual_info'] is None:
+                num_segments = len(vid_feat_dict['labels'])
+                all_object_vis += [torch.zeros(2, clip_vis_dim)] * num_segments
+                all_relative_pos += [torch.zeros(2, 4)] * num_segments
+                all_global_vis += [torch.zeros(1, clip_vis_dim)] * num_segments
+                all_contrast_mask += [False] * num_segments
+                continue
             for visual_info in vid_feat_dict['visual_info']:
                 all_object_vis.append(visual_info['object_vis_feature'])
                 all_relative_pos.append(visual_info['bbox_relative_pos'])
@@ -102,22 +114,41 @@ class SceneGraphProcessor:
     def __init__(self, graph_node_type_embed: nn.Embedding):
         self.graph_node_type_embed = graph_node_type_embed
     
-    def process_scene_graphs(self, video_list: List[Dict], device: torch.device) -> Tuple[Batch, torch.Tensor, Dict]:
+    @staticmethod
+    def placeholder_graph(txt_dim: int) -> Dict:
+        """Single-node invalid graph, matching the data-preparation placeholder for BG segments."""
+        return {
+            "graph_x": torch.zeros(1, txt_dim),
+            "graph_x_type": torch.zeros(1, dtype=torch.long),
+            "graph_edge": torch.zeros(2, 1, dtype=torch.long),
+            "state_graph_node": torch.zeros(1, dtype=torch.long),
+            "spatial_graph_node": torch.zeros(1, dtype=torch.long),
+            "valid": False,
+        }
+
+    def process_scene_graphs(self, video_list: List[Dict], device: torch.device,
+                             txt_dim: int) -> Tuple[Batch, torch.Tensor, Dict]:
         """Process scene graphs from video list into batched format.
-        
+
         Args:
             video_list: List of dictionaries containing video data with 'scene_graph' field.
+                A video without scene graphs (``scene_graph`` is None) contributes one invalid
+                placeholder graph per segment, so graphs stay aligned with segments.
             device: Target device for tensor operations.
-            
+            txt_dim: Dimension of the CLIP text features of the graph nodes.
+
         Returns:
-            Tuple containing batched graph data, graph validity mask, and dictionary of subgraph nodes with 'state_graph_node' and 'spatial_graph_node'.
+            Tuple containing batched graph data (one graph per segment, in segment order), graph validity mask, and dictionary of subgraph nodes with 'state_graph_node' and 'spatial_graph_node'.
         """
         data_list = []
         graph_mask = []
         sub_graph_node = {'state_graph_node': [], 'spatial_graph_node': []}
-        
+
         for vid_feat_dict in video_list:
-            for graph in vid_feat_dict['scene_graph']:
+            graphs = vid_feat_dict['scene_graph']
+            if graphs is None:
+                graphs = [self.placeholder_graph(txt_dim)] * len(vid_feat_dict['labels'])
+            for graph in graphs:
                 # Prepare node features
                 x = graph["graph_x"].flatten(1).to(device)
                 node_type_embed = self.graph_node_type_embed(graph["graph_x_type"].to(device))
@@ -294,6 +325,7 @@ class Effect_Model(nn.Module):
         
         # Store configuration
         self.clip_vis_dim = clip_vis_input_dim
+        self.txt_input_dim = txt_input_dim
         self.feat_dim = feat_dim
         self.num_classes = num_classes
         
@@ -403,8 +435,9 @@ class Effect_Model(nn.Module):
         
         # Process inputs and get masks
         segment_action_labels = torch.cat(segment_action_labels, dim=0).to(device)
-        vlm_features = self.vlm_processor.extract_vlm_features(video_list, device)
-        graph_data, graph_mask, sub_graph_node = self.graph_processor.process_scene_graphs(video_list, device)
+        vlm_features = self.vlm_processor.extract_vlm_features(video_list, device, self.clip_vis_dim)
+        graph_data, graph_mask, sub_graph_node = self.graph_processor.process_scene_graphs(
+            video_list, device, self.txt_input_dim)
         effect_model_mask = torch.logical_and(vlm_features['frame_contrast_mask'], graph_mask).bool()
         
         # Early return if no valid data
@@ -419,18 +452,16 @@ class Effect_Model(nn.Module):
             }, feature_segments
         
         # Process graphs through GNN
-        node_features, graph_batch = self.gnn(graph_data)
-        graph_outputs = []
-        for graph_id in graph_batch.unique():
-            graph_node_features = node_features[graph_batch == graph_id]
-            graph_outputs.append(graph_node_features)
-        
+        node_features, _ = self.gnn(graph_data)
+        # node range of each graph; graph i belongs to segment i (also for graphs without nodes)
+        graph_ptr = graph_data.ptr.tolist()
+
         # Extract subgraph features
         state_features = []
         spatial_features = []
         for i in range(valid_indices.shape[0]):
             idx = valid_indices[i].item()
-            output_node_features = graph_outputs[idx]
+            output_node_features = node_features[graph_ptr[idx]:graph_ptr[idx + 1]]
             
             state_nodes = sub_graph_node['state_graph_node'][idx]
             spatial_nodes = sub_graph_node['spatial_graph_node'][idx]

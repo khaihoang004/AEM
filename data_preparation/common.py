@@ -119,8 +119,34 @@ def clip_content_score(clip_model, preprocess, tokenizer, device, img_bgr, texts
 # --------------------------------------------------------------------------- #
 #  Effect-frame lookup (shared by describe / detect / scene-graph steps)      #
 # --------------------------------------------------------------------------- #
-def find_egoper_effect_frame(effect_vid_dir, action, start_time):
-    """Locate the effect frame for one EgoPER segment.
+def _find_segment_folder(effect_vid_dir, start_prefix, end_time):
+    """Return ``(seg_folder, frame_file)`` for the segment folder ``<start_prefix>_<end>``,
+    or ``(None, None)``.
+
+    The ``_`` after the start is required: a bare ``startswith(start_prefix)`` lets a segment
+    that starts at second 1 match the folder of a later segment such as ``126_200``.
+    Overlapping segments can share a start second, so the folder whose end also matches
+    ``floor(end_time)`` is preferred; otherwise (the selection step may have extended the end
+    over a following background segment) the first folder with the right start is used.
+    Empty folders are skipped.
+    """
+    candidates = []
+    for name in sorted(os.listdir(effect_vid_dir)):
+        if not name.startswith(start_prefix + "_"):
+            continue
+        seg_dir = os.path.join(effect_vid_dir, name)
+        frames = sorted(os.listdir(seg_dir)) if os.path.isdir(seg_dir) else []
+        if frames:
+            candidates.append((name, frames[0]))
+    exact = f"{start_prefix}_{int(math.floor(end_time))}"
+    for name, frame in candidates:
+        if name == exact:
+            return name, frame
+    return candidates[0] if candidates else (None, None)
+
+
+def find_egoper_effect_frame(effect_vid_dir, action, time_stamp):
+    """Locate the effect frame for one EgoPER segment with ``time_stamp`` = ``[start, end]`` (s).
 
     ``effect_vid_dir`` = ``<data_root>/effect_frames/<task>/<video_id>``.
     Segment folders are named ``<action>_<ceil(start)>_<floor(end)>``.
@@ -137,27 +163,19 @@ def find_egoper_effect_frame(effect_vid_dir, action, start_time):
         frame = sorted(os.listdir(os.path.join(folder_1, sub)))[0]
         return os.path.join("Measure 1", sub), frame
 
-    prefix = f"{action}_{int(math.ceil(start_time))}"
-    for name in sorted(os.listdir(effect_vid_dir)):
-        if name.startswith(prefix):
-            frame = sorted(os.listdir(os.path.join(effect_vid_dir, name)))[0]
-            return name, frame
-    return None, None
+    start_time, end_time = time_stamp
+    return _find_segment_folder(effect_vid_dir, f"{action}_{int(math.ceil(start_time))}", end_time)
 
 
-def find_ccp4d_effect_frame(effect_vid_dir, start_time):
-    """Locate the effect frame for one CaptainCook4D segment.
+def find_ccp4d_effect_frame(effect_vid_dir, time_stamp):
+    """Locate the effect frame for one CaptainCook4D segment with ``time_stamp`` = ``[start, end]`` (s).
 
     ``effect_vid_dir`` = ``<data_root>/effect_frames/<video_id>``.
     Segment folders are named ``<ceil(start)>_<floor(end)>``.
     Returns ``(seg_folder, frame_file)`` or ``(None, None)``.
     """
-    prefix = str(int(math.ceil(start_time)))
-    for name in sorted(os.listdir(effect_vid_dir)):
-        if name.startswith(prefix):
-            frame = sorted(os.listdir(os.path.join(effect_vid_dir, name)))[0]
-            return name, frame
-    return None, None
+    start_time, end_time = time_stamp
+    return _find_segment_folder(effect_vid_dir, str(int(math.ceil(start_time))), end_time)
 
 
 def ccp4d_remapped_idx2action(id_activity_mapping, activity_step_collection, step_id_mapping):

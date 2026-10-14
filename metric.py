@@ -101,12 +101,6 @@ def roc_curve(all_preds, all_gts):
     tp_fn = len(all_gt_error) # number of total error items in the ground truth
     tp = len(all_gt_error[all_gt_error == -1]) # get TP
 
-    # Calculate True Negatives
-    tn = len(all_gt_normal[all_gt_normal == 1])  # get TN
-    
-    # Calculate False Negatives
-    fn = len(all_gt_error[all_gt_error == 1])  # get FN
-
     # acc
     acc = torch.eq(torch.LongTensor(all_gts), torch.LongTensor(all_preds)).sum() / len(all_gts)
 

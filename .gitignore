@@ -3,6 +3,8 @@
 # -------------------------------------------------
 ckpt/
 checkpoints/
+# archives of checkpoints / data for upload
+*.zip
 
 # -------------------------------------------------
 # Large data files - download from Google Drive, do not commit
@@ -14,6 +16,14 @@ data/**/features_10fps
 data/**/*_features_10fps
 # Effect frames (EgoPER + CaptainCook4D)
 data/**/effect_frames
+# EgoPER annotations and per-task folders (split files + features), from the EgoPER release
+data/egoper/annotation.json
+data/egoper/active_object.json
+data/egoper/coffee
+data/egoper/oatmeal
+data/egoper/pinwheels
+data/egoper/quesadilla
+data/egoper/tea
 
 # -------------------------------------------------
 # Build artifacts (from the libs/utils NMS compile step)

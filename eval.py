@@ -4,6 +4,8 @@ import glob
 import time
 import json
 import warnings
+from collections import OrderedDict
+
 import open_clip
 import torch
 import torch.nn as nn
@@ -19,52 +21,120 @@ from libs.datasets.clip_encode_ccp4d import action_tokenize_ccp4d
 
 warnings.filterwarnings("ignore")
 
-def main(args):
-    """0. load config"""
-    # sanity check
-    if os.path.isfile(args.config):
-        cfg = load_config(args.config)
-    else:
-        raise ValueError("Config file does not exist.")
-    # assert len(cfg['val_split']) > 0, "Test set must be specified!"
-    assert len(cfg['test_split']) > 0, "Test set must be specified!"
-    if ".pth.tar" in args.ckpt:
-        assert os.path.isfile(args.ckpt), "CKPT file does not exist!"
-        ckpt_file = args.ckpt
-    else:
-        assert os.path.isdir(args.ckpt), "CKPT file folder does not exist!"
-        if args.epoch > 0:
-            ckpt_file = os.path.join(
-                args.ckpt, 'epoch_{:03d}.pth.tar'.format(args.epoch)
-            )
-        else:
-            if args.is_best:
-                ckpt_file = os.path.join(args.ckpt, 'best.pth.tar')
-            else:
-                ckpt_file_list = sorted(glob.glob(os.path.join(args.ckpt, '*.pth.tar')))
-                ckpt_file = ckpt_file_list[-1]
-        assert os.path.exists(ckpt_file)
+# Detection thresholds used for EDA / Precision / AUC. Following EgoPER (Lee et al., 2024),
+# the detection results are aggregated over a dense threshold grid instead of a single
+# operating point: 40 thresholds, 0.000, 0.025, ..., 0.975.
+THRESHOLDS = np.arange(0.0, 1.0, 0.025)
 
-    # load CLIP model
+
+def load_clip_model(device="cuda"):
+    """Load the frozen EVA-02 CLIP used for prompt / effect-frame encoding."""
     clip, _, preprocess = open_clip.create_model_and_transforms(
-        model_name="EVA02-L-14-336", 
+        model_name="EVA02-L-14-336",
         pretrained="merged2b_s6b_b61k",
-        device="cuda"
+        device=device
     )
     tokenizer = open_clip.get_tokenizer("EVA02-L-14-336")
-    clip_model = (clip.eval(), tokenizer, preprocess)
+    return (clip.eval().requires_grad_(False).to(device), tokenizer, preprocess)
 
-    if args.topk > 0:
-        cfg['model']['test_cfg']['max_seg_num'] = args.topk
-    # pprint(cfg)
 
+def resolve_ckpt_file(ckpt, epoch=-1, is_best=False):
+    """Resolve a checkpoint path, which may be a file or a folder of epoch checkpoints."""
+    if ".pth.tar" in ckpt:
+        assert os.path.isfile(ckpt), "CKPT file does not exist!"
+        return ckpt
+    assert os.path.isdir(ckpt), "CKPT file folder does not exist!"
+    if epoch > 0:
+        ckpt_file = os.path.join(ckpt, 'epoch_{:03d}.pth.tar'.format(epoch))
+    elif is_best:
+        # lowest validation loss, written by train.py when the config has a validation split
+        ckpt_file = os.path.join(ckpt, 'best_val.pth.tar')
+    else:
+        ckpt_file = sorted(glob.glob(os.path.join(ckpt, '*.pth.tar')))[-1]
+    assert os.path.exists(ckpt_file)
+    return ckpt_file
+
+
+def load_weights(model, ckpt_file, use_ema=False):
+    """Load checkpoint weights into `model` (an nn.DataParallel wrapper).
+
+    The released checkpoints store the *unwrapped* module weights (no `module.` prefix),
+    while checkpoints written from a DataParallel-wrapped model carry the prefix. Both are
+    accepted here: the prefix is normalized to match the model that is being loaded into.
+    """
+    # load on CPU; load_state_dict copies into the model's device
+    checkpoint = torch.load(ckpt_file, map_location='cpu')
+
+    if use_ema:
+        assert 'state_dict_ema' in checkpoint, \
+            "--use_ema requested but this checkpoint has no 'state_dict_ema' entry."
+        state_dict, source = checkpoint['state_dict_ema'], 'EMA weights'
+    else:
+        state_dict, source = checkpoint['state_dict'], 'model weights'
+
+    wrapped = isinstance(model, nn.DataParallel)
+    normalized = OrderedDict()
+    for k, v in state_dict.items():
+        while k.startswith('module.'):
+            k = k[len('module.'):]
+        normalized['module.' + k if wrapped else k] = v
+
+    model.load_state_dict(normalized)
+    print("=> loaded {} from '{}' ({} tensors)".format(source, ckpt_file, len(normalized)))
+    del checkpoint
+    return model
+
+
+def compute_metrics(results):
+    """Aggregate a single task's inference results into the reported metrics.
+
+    Returns Precision / AUC / EDA for one task (one EgoPER task or one CaptainCook4D recipe):
+      - EDA:       segment-level detection accuracy, averaged over the 40 thresholds.
+      - Precision: frame-level precision of the error class (TP / (TP + FP), error = positive),
+                   pooled over all test videos of the task, averaged over the same 40 thresholds.
+      - AUC:       area under the micro (frame-level) ROC traced by those 40 thresholds.
+    """
+    eda_list, precision_list, micro_fprs, micro_tprs = [], [], [], []
+    for threshold in THRESHOLDS:
+        outputs = evaluate_ed(results, threshold=float(threshold))
+        eda_list.append(outputs['error_acc'])
+        precision_list.append(outputs['micro']['precision'])
+        micro_fprs.append(outputs['micro']['fpr'])
+        micro_tprs.append(outputs['micro']['tpr'])
+
+    return {
+        'eda': float(np.mean(eda_list)) * 100,
+        'precision': float(np.mean(precision_list)) * 100,
+        'auc': calculate_micro_auc(micro_fprs, micro_tprs) * 100,
+    }
+
+
+def run_inference(model, test_loader, clip_model, action_tokens):
+    """Segment and score every video of `test_loader` with `model` (an nn.DataParallel wrapper).
+
+    Returns the per-video results dict consumed by `compute_metrics` / `evaluate_seg`.
+    """
+    model.eval()
+    results = {}
+    for video_list in test_loader:
+        with torch.no_grad():
+            results.update(model.module.inference(
+                video_list=video_list,
+                clip_model=clip_model,
+                action_tokens=action_tokens
+            ))
+    return results
+
+
+def evaluate(cfg, ckpt_file, clip_model, use_gcn=False, use_ema=False):
+    """Evaluate one checkpoint on one task; returns the segmentation and detection metrics."""
     """1. fix all randomness"""
     # fix the random seeds (this will fix everything)
     _ = fix_random_seed(0, include_cuda=True)
 
     """2. create dataset / dataloader"""
     test_dataset = make_dataset(
-            cfg['dataset_name'], False, clip_model, cfg['test_split'], args.use_gcn, **cfg['dataset']
+            cfg['dataset_name'], False, clip_model, cfg['test_split'], use_gcn, **cfg['dataset']
         )
     # set bs = 1, and disable shuffle
     test_loader = make_data_loader(
@@ -98,41 +168,21 @@ def main(args):
 
     """3. create model and evaluator"""
     # model
-    cfg['model']['backbone_type'] = 'convGCNTransformer' if args.use_gcn else 'convTransformer'
+    cfg['model']['backbone_type'] = 'convGCNTransformer' if use_gcn else 'convTransformer'
     model = make_meta_arch(cfg['model_name'], **cfg['model'])
     # not ideal for multi GPU training, ok for now
     model = nn.DataParallel(model, device_ids=cfg['devices'])
 
     """4. load ckpt"""
-    print("=> loading checkpoint '{}'".format(ckpt_file))
-    # load ckpt, reset epoch / best rmse
-    checkpoint = torch.load(
-        ckpt_file,
-        map_location = lambda storage, loc: storage.cuda(cfg['devices'][0])
-    )
-    # load ema model instead
-    print("Loading from EMA model ...")
-    # model.load_state_dict(checkpoint['state_dict_ema'])
-    model.load_state_dict(checkpoint['state_dict'])
-    del checkpoint
+    model = load_weights(model, ckpt_file, use_ema=use_ema)
 
     """5. Test the model"""
     print("\nStart testing model {:s} ...".format(cfg['model_name']))
     start = time.time()
 
-    model.eval()
-    # dict for results (for our evaluation code)
-    results = {}
-    for iter_idx, video_list in enumerate(test_loader, 0):
-        with torch.no_grad():
-            batched_result = model.module.inference(
-                video_list=video_list,
-                clip_model=clip_model,
-                action_tokens=action_tokens
-            )
-            results.update(batched_result)
-            
-    """4. Segmentation Accuracy"""
+    results = run_inference(model, test_loader, clip_model, action_tokens)
+
+    """6. Segmentation Accuracy"""
     list_of_gt_frame_action = []
     list_of_pred_frame_action = []
     for k,v in results.items():
@@ -143,26 +193,36 @@ def main(args):
         seg_outputs['Accuracy'], seg_outputs['mIoU'], seg_outputs['Edit'], seg_outputs['F1@0.5'])
     )
 
-    """5. Error Detection Accuracy"""
-    threshold = 0.0
-    eda_list = []
-    micro_fprs, micro_tprs = [], []
-
-    while threshold <= 1.0:
-        outputs = evaluate_ed(results, threshold=threshold)
-        eda_list.append(outputs['error_acc'])
-        micro_fprs.append(outputs['micro']["fpr"])
-        micro_tprs.append(outputs['micro']["tpr"])
-        threshold += 0.025  ## follow EGOPER paper
-        
-    eda = np.array(eda_list).mean() * 100
-    micro_auc_value = calculate_micro_auc(micro_fprs, micro_tprs)
-    micro_auc_value = micro_auc_value * 100
+    """7. Mistake detection: Precision / AUC / EDA over the threshold grid"""
+    metrics = compute_metrics(results)
     end = time.time()
 
-    print("Detection Error Accuracy: {:0.2f}%, Micro AUC: {:.2f}% ".format(eda, micro_auc_value))
+    print("Detection Error Accuracy: {:0.2f}%, Precision: {:0.2f}%, Micro AUC: {:.2f}%".format(
+        metrics['eda'], metrics['precision'], metrics['auc'])
+    )
     print("All done! Total time: {:0.2f} sec".format(end - start))
 
+    metrics.update(seg_outputs)
+    return metrics
+
+
+def main(args):
+    """0. load config"""
+    # sanity check
+    if os.path.isfile(args.config):
+        cfg = load_config(args.config)
+    else:
+        raise ValueError("Config file does not exist.")
+    assert len(cfg['test_split']) > 0, "Test set must be specified!"
+    ckpt_file = resolve_ckpt_file(args.ckpt, args.epoch, args.is_best)
+
+    if args.task is not None:
+        cfg['dataset']['task'] = args.task
+    if args.topk > 0:
+        cfg['model']['test_cfg']['max_seg_num'] = args.topk
+
+    clip_model = load_clip_model(cfg['devices'][0])
+    evaluate(cfg, ckpt_file, clip_model, use_gcn=args.use_gcn, use_ema=args.use_ema)
     return
 
 ################################################################################
@@ -170,7 +230,7 @@ if __name__ == '__main__':
     """Entry Point"""
     # the arg parser
     parser = argparse.ArgumentParser(
-      description='Train a point-based transformer for action localization')
+      description='Evaluate a trained mistake-detection model on one task / recipe')
     parser.add_argument('config', type=str, metavar='DIR',
                         help='path to a config file')
     parser.add_argument('ckpt', type=str, metavar='DIR',
@@ -180,7 +240,11 @@ if __name__ == '__main__':
                         help='checkpoint epoch')
     parser.add_argument('-t', '--topk', default=-1, type=int,
                         help='max number of output actions (default: -1)')
+    parser.add_argument('--task', type=str, default=None,
+                help="override dataset.task in the config (e.g. a CaptainCook4D recipe id)")
     parser.add_argument('--use_gcn', default=False, action='store_true',
-                help='no effect modeling for the model')
+                help='use the GCN backbone (active-object graph); required for EgoPER')
+    parser.add_argument('--use_ema', default=False, action='store_true',
+                help="evaluate the EMA weights ('state_dict_ema') instead of 'state_dict'")
     args = parser.parse_args()
     main(args)

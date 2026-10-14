@@ -32,10 +32,8 @@ class EgoPERdataset(Dataset):
         
         # Setup device and paths
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # # I3D feature path
+        # I3D feature path
         self.feat_path = os.path.join(root_dir, task, 'features_10fps')
-        # DINO feature path
-        # self.feat_path = os.path.join(root_dir, task, 'dinov2_features_10fps')
         self.image_path = os.path.join(root_dir, task, 'frames_1fps')
         self.load_pre_data = split in ['training', 'validation']
         

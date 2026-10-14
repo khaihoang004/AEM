@@ -20,55 +20,52 @@ from libs.datasets.clip_encode_ccp4d import action_tokenize_ccp4d
 
 warnings.filterwarnings("ignore")
 
+def checkpoint_states(epoch, model, model_ema, optimizer, scheduler):
+    return {
+        'epoch': epoch,
+        'state_dict': model.state_dict(),
+        'scheduler': scheduler.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'state_dict_ema': model_ema.module.state_dict()
+    }
+
+
 def train_model(
-    cfg, args, 
-    model, model_ema, 
-    optimizer, scheduler, 
-    train_loader, val_loader, 
-    action_tokens, clip_model, 
-    tb_writer, ckpt_folder, 
-    logger_folder
+    cfg, args,
+    model, model_ema,
+    optimizer, scheduler,
+    train_loader, val_loader,
+    action_tokens, clip_model,
+    tb_writer, ckpt_folder
 ):
-    """
-    Handles the main training loop, including validation and checkpointing.
-    """
-    print(f"\n--- Starting Training ---")
+
+    print("\n--- Starting Training ---")
     max_epochs = cfg['opt'].get('early_stop_epochs', cfg['opt']['epochs'] + cfg['opt']['warmup_epochs'])
-    
+    best_val_loss = float('inf')
+
     for epoch in range(max_epochs):
         model_ema = train_one_epoch(
             train_loader, action_tokens, model, clip_model, optimizer, scheduler, epoch, max_epochs,
             model_ema=model_ema, clip_grad_l2norm=cfg['train_cfg']['clip_grad_l2norm'], tb_writer=tb_writer
         )
 
-        valid_one_epoch(
-            val_loader, action_tokens, model, clip_model, epoch, max_epochs, tb_writer=tb_writer
-        )
+        # Keep the epoch with the lowest validation loss
+        if val_loader is not None:
+            val_losses = valid_one_epoch(
+                val_loader, action_tokens, model, clip_model, epoch, max_epochs, tb_writer=tb_writer
+            )
+            if val_losses['final_loss'] < best_val_loss:
+                best_val_loss = val_losses['final_loss']
+                save_checkpoint(checkpoint_states(epoch + 1, model, model_ema, optimizer, scheduler), False,
+                                file_folder=ckpt_folder, file_name='best_val.pth.tar')
 
         # Save checkpoint periodically
         if ((epoch + 1) == max_epochs) or ((args.ckpt_freq > 0) and ((epoch + 1) % args.ckpt_freq == 0)):
-            save_states = {
-                'epoch': epoch + 1,
-                'state_dict': model.state_dict(),
-                'scheduler': scheduler.state_dict(),
-                'optimizer': optimizer.state_dict(),
-                'state_dict_ema': model_ema.module.state_dict()
-            }
             save_checkpoint(
-                save_states, False,
+                checkpoint_states(epoch + 1, model, model_ema, optimizer, scheduler), False,
                 file_folder=ckpt_folder,
                 file_name=f'epoch_{epoch + 1:03d}.pth.tar'
             )
-
-    # Save the last model checkpoint
-    last_states = {
-        'epoch': max_epochs,
-        'state_dict': model.state_dict(),
-        'scheduler': scheduler.state_dict(),
-        'optimizer': optimizer.state_dict(),
-        'state_dict_ema': model_ema.module.state_dict()
-    }
-    save_checkpoint(last_states, False, file_folder=logger_folder, file_name=f'epoch_{max_epochs:03d}.pth.tar')
 
 
 def main(args):
@@ -79,18 +76,18 @@ def main(args):
     """1. Setup parameters / folders"""
     args.start_epoch = 0
     cfg = load_config(args.config)
+    if args.task is not None:
+        cfg['dataset']['task'] = args.task
 
     # Prepare output folder
-    if not os.path.exists(cfg['output_folder']):
-        os.makedirs(cfg['output_folder'])
+    os.makedirs(cfg['output_folder'], exist_ok=True)
     cfg_filename = os.path.basename(args.config).replace('.yaml', '')
     if len(args.output) == 0:
         ts = datetime.datetime.fromtimestamp(int(time.time()))
         ckpt_folder = os.path.join(cfg['output_folder'], cfg_filename + '_' + str(ts))
     else:
         ckpt_folder = os.path.join(cfg['output_folder'], cfg_filename + '_' + str(args.output))
-    if not os.path.exists(ckpt_folder):
-        os.makedirs(ckpt_folder)
+    os.makedirs(ckpt_folder, exist_ok=True)
         
     logger_folder = os.path.join(ckpt_folder, 'logs', time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime()))
     tb_writer = SummaryWriter(logger_folder)
@@ -111,19 +108,19 @@ def main(args):
         device="cuda"
     )
     tokenizer = open_clip.get_tokenizer("EVA02-L-14-336")
-    clip_model = (clip.eval(), tokenizer, preprocess)
+    # CLIP stays frozen; only the prompt prefix fed through its text tower is learned
+    clip_model = (clip.eval().requires_grad_(False), tokenizer, preprocess)
 
     """2. Create datasets / dataloaders"""
     # Training set
     train_dataset = make_dataset(cfg['dataset_name'], True, clip_model, cfg['train_split'], args.use_gcn, **cfg['dataset'])
     train_loader = make_data_loader(train_dataset, True, rng_generator, **cfg['loader'])
 
-    # CaptainCook4D is trained/tested per recipe and has no separate validation split.
-    if cfg['dataset_name'] == 'CaptainCook4D':
-        val_dataset = make_dataset(cfg['dataset_name'], False, clip_model, cfg['test_split'], args.use_gcn, **cfg['dataset'])
-    else:
+    # Validation set.
+    val_loader = None
+    if cfg['val_split']:
         val_dataset = make_dataset(cfg['dataset_name'], False, clip_model, cfg['val_split'], args.use_gcn, **cfg['dataset'])
-    val_loader = make_data_loader(val_dataset, False, None, 1, cfg['loader']['num_workers'])
+        val_loader = make_data_loader(val_dataset, False, None, 1, cfg['loader']['num_workers'])
 
     # Load annotations and tokenize actions
     if cfg['dataset_name'] == 'CaptainCook4D':
@@ -162,15 +159,34 @@ def main(args):
     # Resume from a checkpoint if specified
     if args.resume:
         if os.path.isfile(args.resume):
-            # checkpoint = torch.load(args.resume, map_location=lambda storage, loc: storage.cuda(cfg['devices']))
-            device_id = cfg['devices'][0] if isinstance(cfg['devices'], list) else cfg['devices']
-            # Convert device_id to int if it's a string, default to 0 if conversion fails
-            if isinstance(device_id, str):
-                device_id = 0
-            checkpoint = torch.load(args.resume, map_location=lambda storage, loc: storage.cuda(device_id))
-            model.load_state_dict(checkpoint['state_dict'], strict=False)
-            model_ema.module.load_state_dict(checkpoint['state_dict_ema'], strict=False)
-            print(f"=> loaded checkpoint '{args.resume}' (epoch {checkpoint['epoch']})")
+            # load on CPU; load_state_dict copies into the model's device
+            checkpoint = torch.load(args.resume, map_location='cpu')
+
+            def same_shape(state, target):
+                # accept weights saved with or without the DataParallel 'module.' prefix (released
+                # checkpoints have none); tensors whose shape differs (e.g. the classification head
+                # of a checkpoint trained with another set of classes, such as the pooled
+                # CaptainCook4D task '0') keep their fresh initialisation
+                own = target.state_dict()
+                matched, skipped = {}, []
+                for k, v in state.items():
+                    while k.startswith('module.'):
+                        k = k[len('module.'):]
+                    k = 'module.' + k
+                    if k in own and own[k].shape != v.shape:
+                        skipped.append(k)
+                    elif k in own:
+                        matched[k] = v
+                return matched, skipped
+
+            state, skipped = same_shape(checkpoint['state_dict'], model)
+            model.load_state_dict(state, strict=False)
+            # released checkpoints carry no EMA weights: start the EMA from the loaded model
+            ema_state = checkpoint.get('state_dict_ema', checkpoint['state_dict'])
+            model_ema.module.load_state_dict(same_shape(ema_state, model_ema.module)[0], strict=False)
+            print(f"=> loaded {len(state)} tensors from '{args.resume}'"
+                  + (f" (epoch {checkpoint['epoch']})" if 'epoch' in checkpoint else "")
+                  + (f"; {len(skipped)} tensors with another shape keep their initialisation: {skipped}" if skipped else ""))
             del checkpoint
         else:
             print(f"=> no checkpoint found at '{args.resume}'")
@@ -185,7 +201,7 @@ def main(args):
     # Call the dedicated training function
     train_model(
         cfg, args, model, model_ema, optimizer, scheduler, train_loader, val_loader,
-        action_tokens, clip_model, tb_writer, ckpt_folder, logger_folder
+        action_tokens, clip_model, tb_writer, ckpt_folder
     )
     
     tb_writer.close()
@@ -198,6 +214,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--ckpt-freq', default=5, type=int, help='checkpoint frequency (default: every 5 epochs)')
     parser.add_argument('--output', default='', type=str, help='name of experiment folder (default: none)')
     parser.add_argument('--resume', default='', type=str, metavar='PATH', help='path to a checkpoint to resume training (default: none)')
+    parser.add_argument('--task', type=str, default=None, help='override dataset.task in the config (e.g. a CaptainCook4D recipe id)')
     parser.add_argument('--use_gcn', default=False, action='store_true', help='use GCN in the model backbone')
     parser.add_argument('-t', '--topk', default=-1, type=int, help='max number of output actions for evaluation (default: -1)')
     

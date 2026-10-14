@@ -49,7 +49,7 @@ def main():
                 has_desc = "Description of OBJECT A" in seg and "Description of OBJECT B" in seg
                 seg_folder = frame = None
                 if has_desc and os.path.isdir(effect_vid_dir):
-                    seg_folder, frame = find_ccp4d_effect_frame(effect_vid_dir, seg["time_stamp"][0])
+                    seg_folder, frame = find_ccp4d_effect_frame(effect_vid_dir, seg["time_stamp"])
 
                 if seg_folder is not None:
                     frame_path = os.path.join(effect_vid_dir, seg_folder, frame)

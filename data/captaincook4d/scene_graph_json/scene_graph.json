@@ -871,52 +871,52 @@
                 "relation": [
                     {
                         "subject": "ramekin cup",
-                        "relation": "next to",
-                        "object": "cooking spray"
-                    },
-                    {
-                        "subject": "ramekin cup",
-                        "relation": "on",
-                        "object": "cutting board"
+                        "relation": "held by",
+                        "object": "person's hand"
                     },
                     {
                         "subject": "cooking spray",
-                        "relation": "next to",
-                        "object": "cutting board"
+                        "relation": "pointing at",
+                        "object": "ramekin cup"
+                    },
+                    {
+                        "subject": "person's hand",
+                        "relation": "below",
+                        "object": "cooking spray"
                     }
                 ],
                 "attribute": [
                     {
                         "subject": "ramekin cup",
                         "attribute": [
-                            "round",
-                            "ceramic"
+                            "white",
+                            "round"
                         ]
                     },
                     {
                         "subject": "cooking spray",
                         "attribute": [
-                            "canister",
-                            "metal"
+                            "yellow",
+                            "canister"
                         ]
                     },
                     {
-                        "subject": "cutting board",
+                        "subject": "person's hand",
                         "attribute": [
-                            "green",
-                            "plastic"
+                            "brown",
+                            "human"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The ramekin cup is next to the cooking spray.",
-                    "The ramekin cup is on the cutting board.",
-                    "The cooking spray is next to the cutting board."
+                    "The ramekin cup is held by a person's hand.",
+                    "The cooking spray is pointing at the ramekin cup.",
+                    "The person's hand is below the cooking spray."
                 ],
                 "attribute_sentence": [
-                    "The ramekin cup is round and made of ceramic.",
-                    "The cooking spray comes in a metal canister.",
-                    "The cutting board is green and made of plastic."
+                    "The ramekin cup is white and round.",
+                    "The cooking spray is yellow and in a canister.",
+                    "The person's hand is brown."
                 ],
                 "action": "Coat a 6-oz. ramekin cup with cooking spray",
                 "action_idx": 3,
@@ -2218,7 +2218,7 @@
                 "relation": [
                     {
                         "subject": "garlic clove",
-                        "relation": "held by",
+                        "relation": "next to",
                         "object": "peeler"
                     },
                     {
@@ -2239,25 +2239,25 @@
                         "subject": "peeler",
                         "attribute": [
                             "metal",
-                            "handheld"
+                            "ergonomic"
                         ]
                     },
                     {
                         "subject": "cutting board",
                         "attribute": [
                             "wooden",
-                            "flat"
+                            "rectangular"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The garlic clove is held by the peeler.",
+                    "The garlic clove is next to the peeler on the cutting board.",
                     "The peeler is on the cutting board."
                 ],
                 "attribute_sentence": [
                     "The garlic clove is small and white.",
-                    "The peeler is a handheld metal tool.",
-                    "The cutting board is flat and made of wood."
+                    "The peeler is made of metal and has an ergonomic design.",
+                    "The cutting board is wooden and rectangular."
                 ],
                 "action": "Peel 1 garlic clove",
                 "action_idx": 1,
@@ -2690,33 +2690,33 @@
                 "relation": [
                     {
                         "subject": "garlic clove",
-                        "relation": "next to",
+                        "relation": "in the hands of",
                         "object": "peeler"
                     },
                     {
                         "subject": "garlic clove",
-                        "relation": "in front of",
+                        "relation": "on",
                         "object": "cutting board"
                     },
                     {
                         "subject": "peeler",
-                        "relation": "on",
-                        "object": "cutting board"
+                        "relation": "next to",
+                        "object": "garlic clove"
                     }
                 ],
                 "attribute": [
                     {
                         "subject": "garlic clove",
                         "attribute": [
-                            "small",
-                            "white"
+                            "white",
+                            "bulbous"
                         ]
                     },
                     {
                         "subject": "peeler",
                         "attribute": [
-                            "long",
-                            "metal"
+                            "metal",
+                            "handheld"
                         ]
                     },
                     {
@@ -2728,13 +2728,13 @@
                     }
                 ],
                 "relation_sentence": [
-                    "The garlic clove is next to the peeler.",
-                    "The garlic clove is in front of the cutting board.",
-                    "The peeler is on the cutting board."
+                    "The garlic clove is in the hands of the person using the peeler.",
+                    "The garlic clove is on the cutting board.",
+                    "The peeler is next to the garlic clove."
                 ],
                 "attribute_sentence": [
-                    "The garlic clove is small and white.",
-                    "The peeler is long and made of metal.",
+                    "The garlic clove is white and bulbous.",
+                    "The peeler is metal and handheld.",
                     "The cutting board is wooden and rectangular."
                 ],
                 "action": "Peel 1 garlic clove",
@@ -3830,16 +3830,63 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "knife",
+                        "relation": "next to",
+                        "object": "carrot"
+                    },
+                    {
+                        "subject": "carrot",
+                        "relation": "on",
+                        "object": "cutting board"
+                    },
+                    {
+                        "subject": "knife",
+                        "relation": "in hand of",
+                        "object": "person"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "carrot",
+                        "attribute": [
+                            "orange",
+                            "long",
+                            "vegetable"
+                        ]
+                    },
+                    {
+                        "subject": "knife",
+                        "attribute": [
+                            "sharp",
+                            "metal"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "wooden",
+                            "rectangular"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The knife is next to the carrot on the cutting board.",
+                    "The carrot is on the cutting board.",
+                    "The knife is in the hand of the person."
+                ],
+                "attribute_sentence": [
+                    "The carrot is orange, long, and a type of vegetable.",
+                    "The knife is sharp and made of metal.",
+                    "The cutting board is wooden and rectangular."
+                ],
                 "action": "Cut 1/4 medium carrot into short, thin strips",
                 "action_idx": 9,
                 "time_stamp": [
                     118.2,
                     321.3
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -5064,16 +5111,58 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "knife",
+                        "relation": "next to",
+                        "object": "carrot"
+                    },
+                    {
+                        "subject": "carrot",
+                        "relation": "on",
+                        "object": "cutting board"
+                    },
+                    {
+                        "subject": "knife",
+                        "relation": "on",
+                        "object": "cutting board"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "carrot",
+                        "attribute": [
+                            "orange",
+                            "cylindrical"
+                        ]
+                    },
+                    {
+                        "subject": "knife",
+                        "attribute": [
+                            "metal",
+                            "sharp"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "wooden",
+                            "rectangular"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The knife is next to the carrot, which is on the cutting board."
+                ],
+                "attribute_sentence": [
+                    "The carrot is orange and cylindrical, while the knife is metal and sharp, resting on a wooden and rectangular cutting board."
+                ],
                 "action": "Cut 1/4 medium carrot into short, thin strips",
                 "action_idx": 9,
                 "time_stamp": [
                     8.4,
                     106.1
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -8492,16 +8581,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "noodles",
+                        "relation": "on",
+                        "object": "package"
+                    },
+                    {
+                        "subject": "package",
+                        "relation": "next to",
+                        "object": "hands"
+                    },
+                    {
+                        "subject": "hands",
+                        "relation": "in front of",
+                        "object": "noodles"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "noodles",
+                        "attribute": [
+                            "uncooked",
+                            "intertwined"
+                        ]
+                    },
+                    {
+                        "subject": "package",
+                        "attribute": [
+                            "orange",
+                            "flat"
+                        ]
+                    },
+                    {
+                        "subject": "hands",
+                        "attribute": [
+                            "human",
+                            "brown skin"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The noodles are on the package.",
+                    "The package is next to the hands.",
+                    "The hands are in front of the noodles."
+                ],
+                "attribute_sentence": [
+                    "The noodles are uncooked and intertwined.",
+                    "The package is orange and flat.",
+                    "The hands are human and have brown skin."
+                ],
                 "action": "Remove the noodles from the package(Break Noodles / Keep them as a block)",
                 "action_idx": 4,
                 "time_stamp": [
                     73.8,
                     90.1
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -12070,23 +12205,18 @@
                 "relation": [
                     {
                         "subject": "medium onion",
-                        "relation": "next to",
+                        "relation": "being peeled by",
                         "object": "peeler"
                     },
                     {
                         "subject": "medium onion",
-                        "relation": "on",
-                        "object": "cutting board"
+                        "relation": "in water from",
+                        "object": "sink"
                     },
                     {
                         "subject": "peeler",
-                        "relation": "on",
-                        "object": "cutting board"
-                    },
-                    {
-                        "subject": "cutting board",
-                        "relation": "on",
-                        "object": "countertop"
+                        "relation": "held by",
+                        "object": "hands"
                     }
                 ],
                 "attribute": [
@@ -12105,29 +12235,22 @@
                         ]
                     },
                     {
-                        "subject": "cutting board",
+                        "subject": "sink",
                         "attribute": [
-                            "flat",
-                            "plastic"
-                        ]
-                    },
-                    {
-                        "subject": "countertop",
-                        "attribute": [
-                            "smooth",
-                            "dark"
+                            "metal",
+                            "attached to countertop"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The medium onion is next to the peeler on the cutting board.",
-                    "The cutting board is on the countertop."
+                    "The medium onion is being peeled by the peeler.",
+                    "The medium onion is in water from the sink.",
+                    "The peeler is held by the hands."
                 ],
                 "attribute_sentence": [
                     "The medium onion is round and white.",
                     "The peeler is metal and handheld.",
-                    "The cutting board is flat and made of plastic.",
-                    "The countertop is smooth and dark."
+                    "The sink is made of metal and attached to the countertop."
                 ],
                 "action": "Peel 1 medium onion",
                 "action_idx": 7,
@@ -13457,16 +13580,96 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "peeler",
+                        "relation": "held by",
+                        "object": "hand"
+                    },
+                    {
+                        "subject": "onion",
+                        "relation": "held by",
+                        "object": "hand"
+                    },
+                    {
+                        "subject": "cutting board",
+                        "relation": "next to",
+                        "object": "hand"
+                    },
+                    {
+                        "subject": "cutting board",
+                        "relation": "above",
+                        "object": "stove"
+                    },
+                    {
+                        "subject": "stove",
+                        "relation": "next to",
+                        "object": "cutting board"
+                    },
+                    {
+                        "subject": "pot",
+                        "relation": "on",
+                        "object": "stove"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "peeler",
+                        "attribute": [
+                            "metal",
+                            "handheld"
+                        ]
+                    },
+                    {
+                        "subject": "onion",
+                        "attribute": [
+                            "medium",
+                            "purple"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "plastic",
+                            "white"
+                        ]
+                    },
+                    {
+                        "subject": "stove",
+                        "attribute": [
+                            "black",
+                            "flat"
+                        ]
+                    },
+                    {
+                        "subject": "pot",
+                        "attribute": [
+                            "metal",
+                            "round"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The peeler is held by a hand.",
+                    "The medium onion is held by a hand.",
+                    "The cutting board is next to the hand.",
+                    "The cutting board is above the stove.",
+                    "The stove is next to the cutting board.",
+                    "The pot is on the stove."
+                ],
+                "attribute_sentence": [
+                    "The peeler is made of metal and is handheld.",
+                    "The onion is medium-sized and purple.",
+                    "The cutting board is white and made of plastic.",
+                    "The stove is black and flat.",
+                    "The pot is metal and round."
+                ],
                 "action": "Peel 1 medium onion",
                 "action_idx": 7,
                 "time_stamp": [
                     33.9,
                     133.1
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -14029,38 +14232,36 @@
                 "relation": [
                     {
                         "subject": "noodles",
-                        "relation": "inside",
+                        "relation": "above",
                         "object": "package"
                     },
                     {
                         "subject": "package",
-                        "relation": "on",
-                        "object": "chopping board"
+                        "relation": "holding",
+                        "object": "noodles"
                     }
                 ],
                 "attribute": [
                     {
                         "subject": "noodles",
                         "attribute": [
-                            "cooked",
+                            "uncooked",
                             "long"
                         ]
                     },
                     {
                         "subject": "package",
                         "attribute": [
-                            "plastic",
-                            "rectangular"
+                            "colorful",
+                            "sealed"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The noodles are inside the package.",
-                    "The package is on the chopping board."
+                    "The noodles are above the package, and the package is being held in one hand."
                 ],
                 "attribute_sentence": [
-                    "The noodles are long and cooked.",
-                    "The package is rectangular and made of plastic."
+                    "The noodles are long and uncooked, while the package is colorful and sealed."
                 ],
                 "action": "Remove the noodles from the package(Break Noodles / Keep them as a block)",
                 "action_idx": 4,
@@ -14483,31 +14684,45 @@
                 "relation": [
                     {
                         "subject": "dripper",
-                        "relation": "above",
+                        "relation": "next to",
                         "object": "coffee mug"
+                    },
+                    {
+                        "subject": "coffee mug",
+                        "relation": "held by",
+                        "object": "person"
                     }
                 ],
                 "attribute": [
                     {
                         "subject": "dripper",
                         "attribute": [
-                            "metal",
-                            "cylindrical"
+                            "color: white",
+                            "material: plastic"
                         ]
                     },
                     {
                         "subject": "coffee mug",
                         "attribute": [
-                            "ceramic",
-                            "black"
+                            "color: white",
+                            "shape: cylindrical"
+                        ]
+                    },
+                    {
+                        "subject": "person",
+                        "attribute": [
+                            "hand: holding",
+                            "position: standing"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The dripper is located above the coffee mug."
+                    "The dripper is next to the coffee mug.",
+                    "The coffee mug is held by a person."
                 ],
                 "attribute_sentence": [
-                    "The dripper is metal and cylindrical, while the coffee mug is black and made of ceramic."
+                    "The dripper is white and made of plastic.",
+                    "The coffee mug is white and has a cylindrical shape."
                 ],
                 "action": "Place the dripper on top of a coffee mug",
                 "action_idx": 14,
@@ -15188,33 +15403,21 @@
                 "attribute_sentence": []
             },
             {
-                "action": "Place the paper filter in the dripper",
-                "action_idx": 5,
-                "time_stamp": [
-                    80.4,
-                    86.8
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
-            },
-            {
                 "relation": [
                     {
                         "subject": "paper filter",
-                        "relation": "inside",
+                        "relation": "being held by",
                         "object": "dripper"
                     },
                     {
                         "subject": "dripper",
-                        "relation": "above",
-                        "object": "table"
+                        "relation": "on top of",
+                        "object": "coffee pot"
                     },
                     {
-                        "subject": "paper filter",
-                        "relation": "held by",
-                        "object": "hand"
+                        "subject": "dripper",
+                        "relation": "above",
+                        "object": "countertop"
                     }
                 ],
                 "attribute": [
@@ -15222,33 +15425,91 @@
                         "subject": "paper filter",
                         "attribute": [
                             "triangular",
-                            "made of paper"
+                            "brown"
+                        ]
+                    },
+                    {
+                        "subject": "dripper",
+                        "attribute": [
+                            "cone-shaped",
+                            "black"
+                        ]
+                    },
+                    {
+                        "subject": "coffee pot",
+                        "attribute": [
+                            "metal",
+                            "silver"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The paper filter is being held by the dripper.",
+                    "The dripper is on top of the coffee pot.",
+                    "The dripper is above the countertop."
+                ],
+                "attribute_sentence": [
+                    "The paper filter is triangular and brown.",
+                    "The dripper is cone-shaped and black.",
+                    "The coffee pot is made of metal and is silver."
+                ],
+                "action": "Place the paper filter in the dripper",
+                "action_idx": 5,
+                "time_stamp": [
+                    80.4,
+                    86.8
+                ]
+            },
+            {
+                "relation": [
+                    {
+                        "subject": "paper filter",
+                        "relation": "held by",
+                        "object": "dripper"
+                    },
+                    {
+                        "subject": "dripper",
+                        "relation": "on",
+                        "object": "stove"
+                    },
+                    {
+                        "subject": "paper filter",
+                        "relation": "next to",
+                        "object": "coffee maker"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "paper filter",
+                        "attribute": [
+                            "triangular",
+                            "light brown"
                         ]
                     },
                     {
                         "subject": "dripper",
                         "attribute": [
                             "circular",
-                            "made of plastic"
+                            "black plastic"
                         ]
                     },
                     {
-                        "subject": "hand",
+                        "subject": "coffee maker",
                         "attribute": [
-                            "human",
-                            "holding the filter"
+                            "black",
+                            "metallic"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The paper filter is inside the dripper.",
-                    "The dripper is above the table.",
-                    "The paper filter is held by a hand."
+                    "The paper filter is held by the dripper.",
+                    "The dripper is on the stove.",
+                    "The paper filter is next to the coffee maker."
                 ],
                 "attribute_sentence": [
-                    "The paper filter is triangular and made of paper.",
-                    "The dripper is circular and made of plastic.",
-                    "The hand is human and is holding the filter."
+                    "The paper filter is triangular and light brown.",
+                    "The dripper is circular and made of black plastic.",
+                    "The coffee maker is black and metallic."
                 ],
                 "action": "spread open filter in dripper to create a cone",
                 "action_idx": 4,
@@ -17770,15 +18031,15 @@
                         "subject": "coffee mug",
                         "attribute": [
                             "ceramic",
-                            "round"
+                            "cylindrical"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The dripper is above the coffee mug."
+                    "The dripper is positioned above the coffee mug."
                 ],
                 "attribute_sentence": [
-                    "The dripper is metal and cylindrical, while the coffee mug is ceramic and round."
+                    "The dripper is made of metal and has a cylindrical shape, while the coffee mug is ceramic and also cylindrical."
                 ],
                 "action": "Place the dripper on top of a coffee mug",
                 "action_idx": 14,
@@ -18899,16 +19160,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "cold water",
+                        "relation": "in",
+                        "object": "measuring container"
+                    },
+                    {
+                        "subject": "measuring container",
+                        "relation": "next to",
+                        "object": "sink"
+                    },
+                    {
+                        "subject": "cold water",
+                        "relation": "from",
+                        "object": "faucet"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "cold water",
+                        "attribute": [
+                            "liquid",
+                            "transparent"
+                        ]
+                    },
+                    {
+                        "subject": "measuring container",
+                        "attribute": [
+                            "plastic",
+                            "cylindrical"
+                        ]
+                    },
+                    {
+                        "subject": "sink",
+                        "attribute": [
+                            "metal",
+                            "basin"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The cold water is in the measuring container.",
+                    "The measuring container is next to the sink.",
+                    "The cold water is coming from the faucet."
+                ],
+                "attribute_sentence": [
+                    "The cold water is a transparent liquid.",
+                    "The measuring container is made of plastic and is cylindrical.",
+                    "The sink is made of metal and is a basin."
+                ],
                 "action": "Measure 12 ounces of cold water",
                 "action_idx": 13,
                 "time_stamp": [
                     2.0,
                     36.5
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -19516,29 +19823,44 @@
                         "subject": "egg",
                         "relation": "in",
                         "object": "microwave-safe bowl"
+                    },
+                    {
+                        "subject": "microwave-safe bowl",
+                        "relation": "on",
+                        "object": "cutting board"
                     }
                 ],
                 "attribute": [
                     {
                         "subject": "egg",
                         "attribute": [
-                            "oval",
-                            "white/yellow"
+                            "white",
+                            "oval"
                         ]
                     },
                     {
                         "subject": "microwave-safe bowl",
                         "attribute": [
-                            "round",
-                            "blue"
+                            "dark blue",
+                            "round"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "white",
+                            "rectangular"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The egg is in the microwave-safe bowl."
+                    "The egg is in the microwave-safe bowl.",
+                    "The microwave-safe bowl is on the cutting board."
                 ],
                 "attribute_sentence": [
-                    "The egg is oval and has a white and yellow color, while the microwave-safe bowl is round and blue."
+                    "The egg is white and oval in shape.",
+                    "The microwave-safe bowl is dark blue and round.",
+                    "The cutting board is white and rectangular."
                 ],
                 "action": "Extract and add contents of an egg to a microwave-safe bowl",
                 "action_idx": 6,
@@ -20734,16 +21056,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "egg",
+                        "relation": "in",
+                        "object": "microwave-safe bowl"
+                    },
+                    {
+                        "subject": "microwave-safe bowl",
+                        "relation": "on",
+                        "object": "countertop"
+                    },
+                    {
+                        "subject": "egg",
+                        "relation": "next to",
+                        "object": "hand"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "egg",
+                        "attribute": [
+                            "oval",
+                            "white"
+                        ]
+                    },
+                    {
+                        "subject": "microwave-safe bowl",
+                        "attribute": [
+                            "circular",
+                            "white ceramic"
+                        ]
+                    },
+                    {
+                        "subject": "hand",
+                        "attribute": [
+                            "human",
+                            "right hand"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The egg is placed in the microwave-safe bowl.",
+                    "The microwave-safe bowl is on the countertop.",
+                    "The egg is next to the hand."
+                ],
+                "attribute_sentence": [
+                    "The egg is oval and white.",
+                    "The microwave-safe bowl is circular and made of white ceramic.",
+                    "The hand is a human right hand."
+                ],
                 "action": "Extract and add contents of an egg to a microwave-safe bowl",
                 "action_idx": 6,
                 "time_stamp": [
                     0.7,
                     70.3
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -21435,16 +21803,48 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "egg",
+                        "relation": "in",
+                        "object": "microwave-safe bowl"
+                    },
+                    {
+                        "subject": "microwave-safe bowl",
+                        "relation": "on",
+                        "object": "countertop"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "egg",
+                        "attribute": [
+                            "oval",
+                            "brown"
+                        ]
+                    },
+                    {
+                        "subject": "microwave-safe bowl",
+                        "attribute": [
+                            "round",
+                            "colorful"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The egg is in the microwave-safe bowl.",
+                    "The microwave-safe bowl is on the countertop."
+                ],
+                "attribute_sentence": [
+                    "The egg is oval and brown.",
+                    "The microwave-safe bowl is round and colorful."
+                ],
                 "action": "Extract and add contents of an egg to a microwave-safe bowl",
                 "action_idx": 6,
                 "time_stamp": [
                     3.6,
                     77.1
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -21818,16 +22218,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "milk",
+                        "relation": "being held by",
+                        "object": "mug"
+                    },
+                    {
+                        "subject": "mug",
+                        "relation": "above",
+                        "object": "sink"
+                    },
+                    {
+                        "subject": "sink",
+                        "relation": "next to",
+                        "object": "countertop"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "milk",
+                        "attribute": [
+                            "liquid",
+                            "white"
+                        ]
+                    },
+                    {
+                        "subject": "mug",
+                        "attribute": [
+                            "color: red",
+                            "ceramic"
+                        ]
+                    },
+                    {
+                        "subject": "sink",
+                        "attribute": [
+                            "metal",
+                            "wash basin"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The milk is being held by the mug.",
+                    "The mug is above the sink.",
+                    "The sink is next to the countertop."
+                ],
+                "attribute_sentence": [
+                    "The milk is a white liquid.",
+                    "The mug is a red ceramic mug.",
+                    "The sink is a metal wash basin."
+                ],
                 "action": "Fill a microwave-safe mug with skimmed milk",
                 "action_idx": 5,
                 "time_stamp": [
                     1.5,
                     60.5
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -27687,18 +28133,18 @@
                 "relation": [
                     {
                         "subject": "nut butter",
-                        "relation": "inside",
+                        "relation": "on",
                         "object": "jar"
                     },
                     {
                         "subject": "jar",
-                        "relation": "on",
-                        "object": "counter"
+                        "relation": "next to",
+                        "object": "knife"
                     },
                     {
-                        "subject": "hands",
-                        "relation": "holding",
-                        "object": "nut butter"
+                        "subject": "knife",
+                        "relation": "held by",
+                        "object": "hand"
                     }
                 ],
                 "attribute": [
@@ -27706,33 +28152,33 @@
                         "subject": "nut butter",
                         "attribute": [
                             "creamy",
-                            "brown"
+                            "in a jar"
                         ]
                     },
                     {
                         "subject": "jar",
                         "attribute": [
-                            "transparent",
-                            "glass"
+                            "red lid",
+                            "plastic"
                         ]
                     },
                     {
-                        "subject": "hands",
+                        "subject": "knife",
                         "attribute": [
-                            "human",
-                            "holding a knife"
+                            "metal",
+                            "sharp"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The nut butter is inside the jar.",
-                    "The jar is on the counter.",
-                    "The hands are holding the nut butter."
+                    "The nut butter is on the jar.",
+                    "The jar is next to the knife.",
+                    "The knife is held by the hand."
                 ],
                 "attribute_sentence": [
-                    "The nut butter is creamy and brown.",
-                    "The jar is transparent and made of glass.",
-                    "The hands are human and holding a knife."
+                    "The nut butter is creamy and in a jar.",
+                    "The jar has a red lid and is made of plastic.",
+                    "The knife is metal and sharp."
                 ],
                 "action": "Use a butter knife to scoop nut butter from the jar",
                 "action_idx": 12,
@@ -28545,16 +28991,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "8-inch flour tortilla",
+                        "relation": "on",
+                        "object": "cutting board"
+                    },
+                    {
+                        "subject": "cutting board",
+                        "relation": "next to",
+                        "object": "packaging"
+                    },
+                    {
+                        "subject": "cutting board",
+                        "relation": "in front of",
+                        "object": "pan"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "8-inch flour tortilla",
+                        "attribute": [
+                            "round",
+                            "soft"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "rectangular",
+                            "wooden"
+                        ]
+                    },
+                    {
+                        "subject": "packaging",
+                        "attribute": [
+                            "plastic",
+                            "colorful"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The 8-inch flour tortilla is placed on the cutting board.",
+                    "The cutting board is next to the packaging.",
+                    "The cutting board is in front of the pan."
+                ],
+                "attribute_sentence": [
+                    "The 8-inch flour tortilla is round and soft.",
+                    "The cutting board is rectangular and made of wood.",
+                    "The packaging is colorful and made of plastic."
+                ],
                 "action": "Place 8-inch flour tortilla on cutting board",
                 "action_idx": 14,
                 "time_stamp": [
                     4.0,
                     54.3
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -29924,16 +30416,48 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "8-inch flour tortilla",
+                        "relation": "on",
+                        "object": "cutting board"
+                    },
+                    {
+                        "subject": "cutting board",
+                        "relation": "next to",
+                        "object": "sink"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "8-inch flour tortilla",
+                        "attribute": [
+                            "round",
+                            "packaged in plastic"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "rectangular",
+                            "wooden"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The 8-inch flour tortilla is on the cutting board.",
+                    "The cutting board is next to the sink."
+                ],
+                "attribute_sentence": [
+                    "The 8-inch flour tortilla is round and packaged in plastic.",
+                    "The cutting board is rectangular and made of wood."
+                ],
                 "action": "Place 8-inch flour tortilla on cutting board",
                 "action_idx": 14,
                 "time_stamp": [
                     3.3,
                     53.0
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -32083,13 +32607,18 @@
                 "relation": [
                     {
                         "subject": "tomato",
-                        "relation": "next to",
+                        "relation": "under",
                         "object": "running water"
                     },
                     {
                         "subject": "running water",
-                        "relation": "in front of",
-                        "object": "tomato"
+                        "relation": "coming from",
+                        "object": "tap"
+                    },
+                    {
+                        "subject": "tomato",
+                        "relation": "held by",
+                        "object": "person's hand"
                     }
                 ],
                 "attribute": [
@@ -32106,15 +32635,20 @@
                             "clear",
                             "liquid"
                         ]
+                    },
+                    {
+                        "subject": "person's hand",
+                        "attribute": [
+                            "human",
+                            "holding"
+                        ]
                     }
                 ],
                 "relation_sentence": [
-                    "The tomato is next to the running water.",
-                    "The running water is in front of the tomato."
+                    "The tomato is being held by a person's hand and is under running water from the tap."
                 ],
                 "attribute_sentence": [
-                    "The tomato is red and round.",
-                    "The running water is clear and in liquid form."
+                    "The tomato is red and round, while the running water is clear and liquid."
                 ],
                 "action": "Rinse a tomato",
                 "action_idx": 7,
@@ -33496,18 +34030,13 @@
                 "relation": [
                     {
                         "subject": "tomato",
-                        "relation": "next to",
+                        "relation": "held in",
                         "object": "paper/tea towel"
                     },
                     {
                         "subject": "paper/tea towel",
-                        "relation": "to the left of",
-                        "object": "plate of food"
-                    },
-                    {
-                        "subject": "plate of food",
-                        "relation": "on",
-                        "object": "stove"
+                        "relation": "held by",
+                        "object": "unknown hand"
                     }
                 ],
                 "attribute": [
@@ -33522,26 +34051,17 @@
                         "subject": "paper/tea towel",
                         "attribute": [
                             "white",
-                            "textured"
-                        ]
-                    },
-                    {
-                        "subject": "plate of food",
-                        "attribute": [
-                            "decorated",
-                            "circular"
+                            "soft"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The tomato is next to the paper/tea towel.",
-                    "The paper/tea towel is to the left of the plate of food.",
-                    "The plate of food is on the stove."
+                    "The tomato is held in the paper/tea towel.",
+                    "The paper/tea towel is held by an unknown hand."
                 ],
                 "attribute_sentence": [
                     "The tomato is red and round.",
-                    "The paper/tea towel is white and textured.",
-                    "The plate of food is decorated and circular."
+                    "The paper/tea towel is white and soft."
                 ],
                 "action": "gently dry it with a paper/tea towel",
                 "action_idx": 4,
@@ -33935,16 +34455,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "tomato",
+                        "relation": "on",
+                        "object": "paper/tea towel"
+                    },
+                    {
+                        "subject": "paper/tea towel",
+                        "relation": "next to",
+                        "object": "tablet"
+                    },
+                    {
+                        "subject": "tablet",
+                        "relation": "on",
+                        "object": "cutting board"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "tomato",
+                        "attribute": [
+                            "red",
+                            "round"
+                        ]
+                    },
+                    {
+                        "subject": "paper/tea towel",
+                        "attribute": [
+                            "white",
+                            "crumpled"
+                        ]
+                    },
+                    {
+                        "subject": "tablet",
+                        "attribute": [
+                            "black",
+                            "flat"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The tomato is on the paper/tea towel.",
+                    "The paper/tea towel is next to the tablet.",
+                    "The tablet is on the cutting board."
+                ],
+                "attribute_sentence": [
+                    "The tomato is red and round.",
+                    "The paper/tea towel is white and crumpled.",
+                    "The tablet is black and flat."
+                ],
                 "action": "gently dry it with a paper/tea towel",
                 "action_idx": 4,
                 "time_stamp": [
                     33.9,
                     46.0
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -36935,16 +37501,61 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "garlic cloves",
+                        "relation": "next to",
+                        "object": "peeler"
+                    },
+                    {
+                        "subject": "garlic cloves",
+                        "relation": "on",
+                        "object": "granite countertop"
+                    },
+                    {
+                        "subject": "peeler",
+                        "relation": "on",
+                        "object": "granite countertop"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "garlic cloves",
+                        "attribute": [
+                            "white",
+                            "irregular shape"
+                        ]
+                    },
+                    {
+                        "subject": "peeler",
+                        "attribute": [
+                            "metal",
+                            "long handle"
+                        ]
+                    },
+                    {
+                        "subject": "granite countertop",
+                        "attribute": [
+                            "gray",
+                            "smooth surface"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The garlic cloves are next to the peeler on the granite countertop.",
+                    "Both the garlic cloves and the peeler are on the granite countertop."
+                ],
+                "attribute_sentence": [
+                    "The garlic cloves are white and have an irregular shape.",
+                    "The peeler is made of metal and has a long handle.",
+                    "The granite countertop is gray and has a smooth surface."
+                ],
                 "action": "Peel 4 large garlic cloves",
                 "action_idx": 7,
                 "time_stamp": [
                     2.2,
                     168.0
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -39694,16 +40305,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "garlic cloves",
+                        "relation": "being peeled by",
+                        "object": "peeler"
+                    },
+                    {
+                        "subject": "garlic cloves",
+                        "relation": "on top of",
+                        "object": "countertop"
+                    },
+                    {
+                        "subject": "peeler",
+                        "relation": "held by",
+                        "object": "hand"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "garlic cloves",
+                        "attribute": [
+                            "white",
+                            "bulbous"
+                        ]
+                    },
+                    {
+                        "subject": "peeler",
+                        "attribute": [
+                            "purple",
+                            "plastic"
+                        ]
+                    },
+                    {
+                        "subject": "hand",
+                        "attribute": [
+                            "brown",
+                            "human"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The garlic cloves are being peeled by the peeler.",
+                    "The garlic cloves are on top of the countertop.",
+                    "The peeler is held by a hand."
+                ],
+                "attribute_sentence": [
+                    "The garlic cloves are white and bulbous.",
+                    "The peeler is purple and made of plastic.",
+                    "The hand holding the peeler is brown and human."
+                ],
                 "action": "Peel 4 large garlic cloves",
                 "action_idx": 7,
                 "time_stamp": [
                     0.6,
                     306.2
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -40403,16 +41060,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "knife",
+                        "relation": "in contact with",
+                        "object": "onion"
+                    },
+                    {
+                        "subject": "knife",
+                        "relation": "on",
+                        "object": "cutting board"
+                    },
+                    {
+                        "subject": "onion",
+                        "relation": "on",
+                        "object": "cutting board"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "knife",
+                        "attribute": [
+                            "metal",
+                            "long blade"
+                        ]
+                    },
+                    {
+                        "subject": "onion",
+                        "attribute": [
+                            "round",
+                            "white"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "wooden",
+                            "rectangular"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The knife is in contact with the onion as it is being cut.",
+                    "The knife is on the cutting board.",
+                    "The onion is on the cutting board."
+                ],
+                "attribute_sentence": [
+                    "The knife has a metal long blade.",
+                    "The onion is round and white.",
+                    "The cutting board is wooden and rectangular."
+                ],
                 "action": "Chop 1/4 medium onion",
                 "action_idx": 6,
                 "time_stamp": [
                     0.8,
                     70.9
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -41233,16 +41936,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "green chilli",
+                        "relation": "next to",
+                        "object": "knife"
+                    },
+                    {
+                        "subject": "knife",
+                        "relation": "on",
+                        "object": "cutting board"
+                    },
+                    {
+                        "subject": "green chilli",
+                        "relation": "on",
+                        "object": "cutting board"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "green chilli",
+                        "attribute": [
+                            "green",
+                            "long"
+                        ]
+                    },
+                    {
+                        "subject": "knife",
+                        "attribute": [
+                            "green",
+                            "sharp"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "wooden",
+                            "rectangular"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The green chilli is next to the knife on the cutting board.",
+                    "The knife is on the cutting board.",
+                    "The green chilli is on the cutting board."
+                ],
+                "attribute_sentence": [
+                    "The green chilli is green and long.",
+                    "The knife is green and sharp.",
+                    "The cutting board is wooden and rectangular."
+                ],
                 "action": "Chop 1 green chilli",
                 "action_idx": 4,
                 "time_stamp": [
                     6.2,
                     79.0
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -42864,18 +43613,18 @@
                 "relation": [
                     {
                         "subject": "egg",
-                        "relation": "in",
+                        "relation": "held by",
+                        "object": "person's hand"
+                    },
+                    {
+                        "subject": "egg",
+                        "relation": "above",
                         "object": "bowl"
                     },
                     {
                         "subject": "bowl",
                         "relation": "on",
                         "object": "countertop"
-                    },
-                    {
-                        "subject": "bowl",
-                        "relation": "next to",
-                        "object": "pan"
                     }
                 ],
                 "attribute": [
@@ -42883,33 +43632,32 @@
                         "subject": "egg",
                         "attribute": [
                             "oval",
-                            "white"
+                            "brown"
                         ]
                     },
                     {
                         "subject": "bowl",
                         "attribute": [
-                            "round",
-                            "metal"
+                            "circular",
+                            "white"
                         ]
                     },
                     {
-                        "subject": "pan",
+                        "subject": "countertop",
                         "attribute": [
-                            "circular",
-                            "black"
+                            "flat",
+                            "brown"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The egg is in the bowl.",
-                    "The bowl is on the countertop.",
-                    "The bowl is next to the pan."
+                    "The egg is held by the person's hand and is above the bowl.",
+                    "The bowl is on the countertop."
                 ],
                 "attribute_sentence": [
-                    "The egg is oval and white.",
-                    "The bowl is round and metal.",
-                    "The pan is circular and black."
+                    "The egg is oval and brown.",
+                    "The bowl is circular and white.",
+                    "The countertop is flat and brown."
                 ],
                 "action": "Crack one egg in the bowl",
                 "action_idx": 10,
@@ -43720,16 +44468,56 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "egg",
+                        "relation": "in",
+                        "object": "bowl"
+                    },
+                    {
+                        "subject": "bowl",
+                        "relation": "held by",
+                        "object": "person"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "egg",
+                        "attribute": [
+                            "yellow",
+                            "round"
+                        ]
+                    },
+                    {
+                        "subject": "bowl",
+                        "attribute": [
+                            "white",
+                            "circular"
+                        ]
+                    },
+                    {
+                        "subject": "person",
+                        "attribute": [
+                            "wearing a striped shirt",
+                            "holding the bowl with one hand"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The egg is in the bowl.",
+                    "The bowl is held by the person."
+                ],
+                "attribute_sentence": [
+                    "The egg is yellow and round.",
+                    "The bowl is white and circular.",
+                    "The person is wearing a striped shirt and is holding the bowl with one hand."
+                ],
                 "action": "Crack one egg in the bowl",
                 "action_idx": 10,
                 "time_stamp": [
                     20.4,
                     63.9
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -44717,16 +45505,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "knife",
+                        "relation": "in contact with",
+                        "object": "green chilli"
+                    },
+                    {
+                        "subject": "green chilli",
+                        "relation": "in front of",
+                        "object": "hand"
+                    },
+                    {
+                        "subject": "knife",
+                        "relation": "held by",
+                        "object": "hand"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "green chilli",
+                        "attribute": [
+                            "green",
+                            "elongated"
+                        ]
+                    },
+                    {
+                        "subject": "knife",
+                        "attribute": [
+                            "metal",
+                            "sharp"
+                        ]
+                    },
+                    {
+                        "subject": "hand",
+                        "attribute": [
+                            "human",
+                            "right"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The knife is in contact with the green chilli.",
+                    "The green chilli is in front of the hand.",
+                    "The knife is held by the hand."
+                ],
+                "attribute_sentence": [
+                    "The green chilli is green and elongated.",
+                    "The knife is made of metal and is sharp.",
+                    "The hand is a human right hand."
+                ],
                 "action": "Chop 1 green chilli",
                 "action_idx": 4,
                 "time_stamp": [
                     0.6,
                     40.9
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -49876,16 +50710,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "zucchini",
+                        "relation": "next to",
+                        "object": "spiralizer"
+                    },
+                    {
+                        "subject": "spiralizer",
+                        "relation": "used to produce",
+                        "object": "zucchini"
+                    },
+                    {
+                        "subject": "zucchini",
+                        "relation": "on",
+                        "object": "plate"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "zucchini",
+                        "attribute": [
+                            "green",
+                            "curved"
+                        ]
+                    },
+                    {
+                        "subject": "spiralizer",
+                        "attribute": [
+                            "plastic",
+                            "kitchen appliance"
+                        ]
+                    },
+                    {
+                        "subject": "plate",
+                        "attribute": [
+                            "circular",
+                            "decorative"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The zucchini is next to the spiralizer.",
+                    "The spiralizer is used to produce the zucchini.",
+                    "The zucchini is on the plate."
+                ],
+                "attribute_sentence": [
+                    "The zucchini is green and curved.",
+                    "The spiralizer is a plastic kitchen appliance.",
+                    "The plate is circular and decorative."
+                ],
                 "action": "Spiralize 1 medium zucchini into thin noodles using a spiralizer",
                 "action_idx": 12,
                 "time_stamp": [
                     0.8,
                     228.6
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -50473,16 +51353,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "garlic clove",
+                        "relation": "held by",
+                        "object": "peeler"
+                    },
+                    {
+                        "subject": "garlic clove",
+                        "relation": "on",
+                        "object": "cutting board"
+                    },
+                    {
+                        "subject": "peeler",
+                        "relation": "next to",
+                        "object": "knife"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "garlic clove",
+                        "attribute": [
+                            "white",
+                            "small"
+                        ]
+                    },
+                    {
+                        "subject": "peeler",
+                        "attribute": [
+                            "metal",
+                            "slim"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "wooden",
+                            "rectangular"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The garlic clove is held by the peeler.",
+                    "The garlic clove is on the cutting board.",
+                    "The peeler is next to the knife."
+                ],
+                "attribute_sentence": [
+                    "The garlic clove is small and white.",
+                    "The peeler is slim and made of metal.",
+                    "The cutting board is rectangular and made of wood."
+                ],
                 "action": "Peel 1 garlic cloves",
                 "action_idx": 9,
                 "time_stamp": [
                     9.0,
                     121.2
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -51111,16 +52037,63 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "zucchini",
+                        "relation": "being processed by",
+                        "object": "spiralizer"
+                    },
+                    {
+                        "subject": "spiralizer",
+                        "relation": "next to",
+                        "object": "zucchini"
+                    },
+                    {
+                        "subject": "spiralizer",
+                        "relation": "on",
+                        "object": "hand"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "zucchini",
+                        "attribute": [
+                            "green",
+                            "cylindrical"
+                        ]
+                    },
+                    {
+                        "subject": "spiralizer",
+                        "attribute": [
+                            "white",
+                            "cylindrical",
+                            "hand-held"
+                        ]
+                    },
+                    {
+                        "subject": "hand",
+                        "attribute": [
+                            "human",
+                            "right"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The zucchini is being processed by the spiralizer.",
+                    "The spiralizer is next to the zucchini.",
+                    "The spiralizer is held in the right hand."
+                ],
+                "attribute_sentence": [
+                    "The zucchini is green and cylindrical.",
+                    "The spiralizer is white, cylindrical, and hand-held.",
+                    "The right hand is a human hand holding the spiralizer."
+                ],
                 "action": "Spiralize 1 medium zucchini into thin noodles using a spiralizer",
                 "action_idx": 12,
                 "time_stamp": [
                     3.0,
                     217.4
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -51589,16 +52562,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "garlic clove",
+                        "relation": "held by",
+                        "object": "person's hands"
+                    },
+                    {
+                        "subject": "peeler",
+                        "relation": "next to",
+                        "object": "garlic clove"
+                    },
+                    {
+                        "subject": "person's hands",
+                        "relation": "above",
+                        "object": "cutting board"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "garlic clove",
+                        "attribute": [
+                            "small",
+                            "white"
+                        ]
+                    },
+                    {
+                        "subject": "peeler",
+                        "attribute": [
+                            "metal",
+                            "silver"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "white",
+                            "plastic"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The garlic clove is held by the person's hands.",
+                    "The peeler is next to the garlic clove.",
+                    "The person's hands are above the cutting board."
+                ],
+                "attribute_sentence": [
+                    "The garlic clove is small and white.",
+                    "The peeler is made of silver metal.",
+                    "The cutting board is white and made of plastic."
+                ],
                 "action": "Peel 1 garlic cloves",
                 "action_idx": 9,
                 "time_stamp": [
                     7.1,
                     72.2
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -52570,16 +53589,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "garlic cloves",
+                        "relation": "in front of",
+                        "object": "peeler"
+                    },
+                    {
+                        "subject": "garlic cloves",
+                        "relation": "on",
+                        "object": "cutting board"
+                    },
+                    {
+                        "subject": "peeler",
+                        "relation": "next to",
+                        "object": "garlic cloves"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "garlic cloves",
+                        "attribute": [
+                            "white",
+                            "bulbous"
+                        ]
+                    },
+                    {
+                        "subject": "peeler",
+                        "attribute": [
+                            "blue",
+                            "plastic"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "wooden",
+                            "rectangular"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The garlic cloves are in front of the peeler.",
+                    "The garlic cloves are on the cutting board.",
+                    "The peeler is next to the garlic cloves."
+                ],
+                "attribute_sentence": [
+                    "The garlic cloves are white and bulbous.",
+                    "The peeler is blue and made of plastic.",
+                    "The cutting board is wooden and rectangular."
+                ],
                 "action": "Peel 2 garlic cloves",
                 "action_idx": 1,
                 "time_stamp": [
                     0.7,
                     165.7
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -53966,16 +55031,70 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "mushrooms",
+                        "relation": "on",
+                        "object": "cutting board"
+                    },
+                    {
+                        "subject": "cutting board",
+                        "relation": "next to",
+                        "object": "cold water"
+                    },
+                    {
+                        "subject": "cold water",
+                        "relation": "in",
+                        "object": "pan"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "mushrooms",
+                        "attribute": [
+                            "brown",
+                            "round"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "green",
+                            "plastic"
+                        ]
+                    },
+                    {
+                        "subject": "cold water",
+                        "attribute": [
+                            "transparent",
+                            "liquid"
+                        ]
+                    },
+                    {
+                        "subject": "pan",
+                        "attribute": [
+                            "white",
+                            "circular"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The mushrooms are on the cutting board.",
+                    "The cutting board is next to the pan containing cold water.",
+                    "Cold water is in the white pan."
+                ],
+                "attribute_sentence": [
+                    "The mushrooms are brown and round in shape.",
+                    "The cutting board is green and made of plastic.",
+                    "The cold water is transparent and in liquid form.",
+                    "The pan is white and circular."
+                ],
                 "action": "Rinse 3 mushrooms under cold water",
                 "action_idx": 3,
                 "time_stamp": [
                     0.6,
                     75.8
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -58229,52 +59348,52 @@
                 "relation": [
                     {
                         "subject": "baking powder",
-                        "relation": "is located near",
+                        "relation": "in front of",
                         "object": "blender"
                     },
                     {
-                        "subject": "blender",
-                        "relation": "is being used by",
+                        "subject": "baking powder",
+                        "relation": "held by",
                         "object": "hand"
                     },
                     {
-                        "subject": "hand",
-                        "relation": "is pouring",
-                        "object": "baking powder"
+                        "subject": "blender",
+                        "relation": "next to",
+                        "object": "measuring spoon"
                     }
                 ],
                 "attribute": [
                     {
                         "subject": "baking powder",
                         "attribute": [
-                            "powdery",
-                            "yellowish"
+                            "white",
+                            "powdery"
                         ]
                     },
                     {
                         "subject": "blender",
                         "attribute": [
-                            "transparent",
-                            "cylindrical"
+                            "transparent container",
+                            "plastic lid"
                         ]
                     },
                     {
-                        "subject": "hand",
+                        "subject": "measuring spoon",
                         "attribute": [
-                            "human",
-                            "right"
+                            "metal",
+                            "round"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The baking powder is located near the blender.",
-                    "The blender is being used by a hand.",
-                    "The hand is pouring baking powder."
+                    "The baking powder is in front of the blender.",
+                    "The baking powder is being held by a hand.",
+                    "The blender is next to a measuring spoon."
                 ],
                 "attribute_sentence": [
-                    "The baking powder appears powdery and yellowish.",
-                    "The blender is transparent and cylindrical.",
-                    "The hand is human and is positioned on the right."
+                    "The baking powder is white and powdery.",
+                    "The blender has a transparent container and a plastic lid.",
+                    "The measuring spoon is made of metal and has a round shape."
                 ],
                 "action": "1/2 tsp baking powder to a blender",
                 "action_idx": 1,
@@ -58776,13 +59895,13 @@
                 "relation": [
                     {
                         "subject": "flour",
-                        "relation": "not interacting with",
+                        "relation": "next to",
                         "object": "blender"
                     },
                     {
                         "subject": "blender",
-                        "relation": "not present in the scene",
-                        "object": "flour"
+                        "relation": "held by",
+                        "object": "hands"
                     }
                 ],
                 "attribute": [
@@ -58795,15 +59914,27 @@
                     },
                     {
                         "subject": "blender",
-                        "attribute": []
+                        "attribute": [
+                            "transparent",
+                            "plastic"
+                        ]
+                    },
+                    {
+                        "subject": "hands",
+                        "attribute": [
+                            "human",
+                            "holding"
+                        ]
                     }
                 ],
                 "relation_sentence": [
-                    "The flour is not interacting with the blender in the image.",
-                    "The blender is not present in the scene with the flour."
+                    "The flour is next to the blender.",
+                    "The blender is held by hands."
                 ],
                 "attribute_sentence": [
-                    "The flour is white and powdery."
+                    "The flour is white and powdery.",
+                    "The blender is transparent and made of plastic.",
+                    "The hands are human and are holding the blender."
                 ],
                 "action": "1 heaped tbsp flour to a blender",
                 "action_idx": 12,
@@ -59938,16 +61069,48 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "cilantro",
+                        "relation": "in front of",
+                        "object": "knife"
+                    },
+                    {
+                        "subject": "knife",
+                        "relation": "above",
+                        "object": "cilantro"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "cilantro",
+                        "attribute": [
+                            "green",
+                            "fresh"
+                        ]
+                    },
+                    {
+                        "subject": "knife",
+                        "attribute": [
+                            "metal",
+                            "sharp"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The cilantro is in front of the knife.",
+                    "The knife is positioned above the cilantro."
+                ],
+                "attribute_sentence": [
+                    "The cilantro is green and fresh.",
+                    "The knife is made of metal and is sharp."
+                ],
                 "action": "Chop 2 tbsp cilantro",
                 "action_idx": 3,
                 "time_stamp": [
                     68.1,
                     304.4
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -60777,28 +61940,116 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "tomato",
+                        "relation": "in",
+                        "object": "pan"
+                    },
+                    {
+                        "subject": "pan",
+                        "relation": "on",
+                        "object": "stove"
+                    },
+                    {
+                        "subject": "plate",
+                        "relation": "next to",
+                        "object": "pan"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "tomato",
+                        "attribute": [
+                            "red",
+                            "round"
+                        ]
+                    },
+                    {
+                        "subject": "pan",
+                        "attribute": [
+                            "black",
+                            "circular"
+                        ]
+                    },
+                    {
+                        "subject": "plate",
+                        "attribute": [
+                            "white",
+                            "decorative pattern"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The tomatoes are in the pan, which is on the stove, and there is a plate next to the pan."
+                ],
+                "attribute_sentence": [
+                    "The tomatoes are red and round, the pan is black and circular, while the plate has a white decorative pattern."
+                ],
                 "action": "Scoop the tomatoes from the pan",
                 "action_idx": 10,
                 "time_stamp": [
                     704.7,
                     715.5
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
+                "relation": [
+                    {
+                        "subject": "tomatoes",
+                        "relation": "in",
+                        "object": "frying pan"
+                    },
+                    {
+                        "subject": "serving plate",
+                        "relation": "next to",
+                        "object": "frying pan"
+                    },
+                    {
+                        "subject": "frying pan",
+                        "relation": "on",
+                        "object": "stove"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "tomatoes",
+                        "attribute": [
+                            "red",
+                            "round"
+                        ]
+                    },
+                    {
+                        "subject": "serving plate",
+                        "attribute": [
+                            "decorative",
+                            "round"
+                        ]
+                    },
+                    {
+                        "subject": "frying pan",
+                        "attribute": [
+                            "metal",
+                            "black"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The tomatoes are in the frying pan.",
+                    "The serving plate is next to the frying pan.",
+                    "The frying pan is on the stove."
+                ],
+                "attribute_sentence": [
+                    "The tomatoes are red and round.",
+                    "The serving plate is decorative and round.",
+                    "The frying pan is made of metal and is black."
+                ],
                 "action": "put tomatoes on a serving plate",
                 "action_idx": 2,
                 "time_stamp": [
                     704.7,
                     715.5
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -61746,16 +62997,57 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "tomatoes",
+                        "relation": "in",
+                        "object": "pan"
+                    },
+                    {
+                        "subject": "pan",
+                        "relation": "on",
+                        "object": "stove"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "tomatoes",
+                        "attribute": [
+                            "red",
+                            "round"
+                        ]
+                    },
+                    {
+                        "subject": "pan",
+                        "attribute": [
+                            "black",
+                            "circular",
+                            "metal"
+                        ]
+                    },
+                    {
+                        "subject": "stove",
+                        "attribute": [
+                            "white",
+                            "flat"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The tomatoes are in the pan.",
+                    "The pan is on the stove."
+                ],
+                "attribute_sentence": [
+                    "The tomatoes are red and round.",
+                    "The pan is black, circular, and made of metal.",
+                    "The stove is white and flat."
+                ],
                 "action": "Scoop the tomatoes from the pan",
                 "action_idx": 10,
                 "time_stamp": [
                     682.3,
                     695.6
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "relation": [
@@ -61770,46 +63062,39 @@
                         "object": "stove"
                     },
                     {
-                        "subject": "stove",
-                        "relation": "near",
-                        "object": "serving plate"
+                        "subject": "serving plate",
+                        "relation": "next to",
+                        "object": "stove"
                     }
                 ],
                 "attribute": [
                     {
                         "subject": "tomatoes",
                         "attribute": [
-                            "red",
-                            "fresh"
+                            "round",
+                            "red"
                         ]
                     },
                     {
                         "subject": "pan",
                         "attribute": [
-                            "metal",
-                            "circular"
-                        ]
-                    },
-                    {
-                        "subject": "stove",
-                        "attribute": [
-                            "white",
-                            "electrical"
+                            "circular",
+                            "metal"
                         ]
                     },
                     {
                         "subject": "serving plate",
                         "attribute": [
-                            "ceramic",
-                            "round"
+                            "round",
+                            "white"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The tomatoes are in the pan, which is on the stove, near the serving plate."
+                    "The tomatoes are in the pan, which is on the stove. The serving plate is next to the stove."
                 ],
                 "attribute_sentence": [
-                    "The tomatoes are red and fresh, while the pan is metal and circular, the stove is white and electrical, and the serving plate is ceramic and round."
+                    "The tomatoes are round and red. The pan is circular and made of metal. The serving plate is round and white."
                 ],
                 "action": "put tomatoes on a serving plate",
                 "action_idx": 2,
@@ -61959,16 +63244,67 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "tomato",
+                        "relation": "next to",
+                        "object": "cutting board"
+                    },
+                    {
+                        "subject": "tomato",
+                        "relation": "being held by",
+                        "object": "hand"
+                    },
+                    {
+                        "subject": "cutting board",
+                        "relation": "located on",
+                        "object": "counter"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "tomato",
+                        "attribute": [
+                            "red",
+                            "round"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "rectangular",
+                            "wooden"
+                        ]
+                    },
+                    {
+                        "subject": "hand",
+                        "attribute": [
+                            "human",
+                            "holding"
+                        ]
+                    },
+                    {
+                        "subject": "sink",
+                        "attribute": [
+                            "metal",
+                            "double basin"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The tomato is being held by a hand while it is next to the cutting board.",
+                    "The cutting board is located on the counter."
+                ],
+                "attribute_sentence": [
+                    "The tomato is red and round.",
+                    "The cutting board is rectangular and wooden."
+                ],
                 "action": "Take a tomato",
                 "action_idx": 13,
                 "time_stamp": [
                     4.7,
                     35.7
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -62221,28 +63557,120 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "tomato",
+                        "relation": "in",
+                        "object": "pan"
+                    },
+                    {
+                        "subject": "pan",
+                        "relation": "on",
+                        "object": "stove"
+                    },
+                    {
+                        "subject": "tomato",
+                        "relation": "next to",
+                        "object": "plate"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "tomato",
+                        "attribute": [
+                            "red",
+                            "round"
+                        ]
+                    },
+                    {
+                        "subject": "pan",
+                        "attribute": [
+                            "metal",
+                            "round"
+                        ]
+                    },
+                    {
+                        "subject": "plate",
+                        "attribute": [
+                            "white",
+                            "circular"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The tomato is in the pan.",
+                    "The pan is on the stove.",
+                    "The tomato is next to the plate."
+                ],
+                "attribute_sentence": [
+                    "The tomato is red and round.",
+                    "The pan is metal and round.",
+                    "The plate is white and circular."
+                ],
                 "action": "Scoop the tomatoes from the pan",
                 "action_idx": 10,
                 "time_stamp": [
                     576.5,
                     600.4
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
+                "relation": [
+                    {
+                        "subject": "tomato",
+                        "relation": "on",
+                        "object": "serving plate"
+                    },
+                    {
+                        "subject": "tomato",
+                        "relation": "above",
+                        "object": "stove"
+                    },
+                    {
+                        "subject": "serving plate",
+                        "relation": "in front of",
+                        "object": "pan"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "tomato",
+                        "attribute": [
+                            "red",
+                            "round"
+                        ]
+                    },
+                    {
+                        "subject": "serving plate",
+                        "attribute": [
+                            "white",
+                            "circular"
+                        ]
+                    },
+                    {
+                        "subject": "pan",
+                        "attribute": [
+                            "black",
+                            "circular"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The tomato is on the serving plate.",
+                    "The tomato is above the stove.",
+                    "The serving plate is in front of the pan."
+                ],
+                "attribute_sentence": [
+                    "The tomato is red and round.",
+                    "The serving plate is white and circular.",
+                    "The pan is black and circular."
+                ],
                 "action": "put tomatoes on a serving plate",
                 "action_idx": 2,
                 "time_stamp": [
                     576.5,
                     600.4
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -66746,16 +68174,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "broccoli florets",
+                        "relation": "on",
+                        "object": "cutting board"
+                    },
+                    {
+                        "subject": "broccoli florets",
+                        "relation": "in",
+                        "object": "hand"
+                    },
+                    {
+                        "subject": "cutting board",
+                        "relation": "next to",
+                        "object": "sink"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "broccoli florets",
+                        "attribute": [
+                            "green",
+                            "vegetable"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "rectangular",
+                            "wood"
+                        ]
+                    },
+                    {
+                        "subject": "hand",
+                        "attribute": [
+                            "human",
+                            "holding the broccoli florets"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The broccoli florets are on the cutting board.",
+                    "The broccoli florets are in the hand.",
+                    "The cutting board is next to the sink."
+                ],
+                "attribute_sentence": [
+                    "The broccoli florets are green vegetables.",
+                    "The cutting board is rectangular and made of wood.",
+                    "The hand is holding the broccoli florets."
+                ],
                 "action": "Take 5 in number broccoli florets",
                 "action_idx": 24,
                 "time_stamp": [
                     7.2,
                     44.4
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -67654,16 +69128,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "honey",
+                        "relation": "in",
+                        "object": "bowl"
+                    },
+                    {
+                        "subject": "bowl",
+                        "relation": "on",
+                        "object": "cutting board"
+                    },
+                    {
+                        "subject": "honey",
+                        "relation": "on",
+                        "object": "cutting board"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "honey",
+                        "attribute": [
+                            "liquid",
+                            "golden brown"
+                        ]
+                    },
+                    {
+                        "subject": "bowl",
+                        "attribute": [
+                            "ceramic",
+                            "decorated with flowers"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "green",
+                            "plastic"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The honey is in the bowl.",
+                    "The bowl is on the cutting board.",
+                    "The honey is on the cutting board."
+                ],
+                "attribute_sentence": [
+                    "The honey is a golden brown liquid.",
+                    "The bowl is ceramic and decorated with flowers.",
+                    "The cutting board is green and made of plastic."
+                ],
                 "action": "Add 1 tablespoon honey to the bowl",
                 "action_idx": 3,
                 "time_stamp": [
                     10.7,
                     128.6
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -68720,25 +70240,25 @@
                 "relation": [
                     {
                         "subject": "honey",
-                        "relation": "in",
+                        "relation": "above",
                         "object": "bowl"
                     },
                     {
-                        "subject": "hand",
-                        "relation": "holding",
-                        "object": "spoon"
+                        "subject": "bowl",
+                        "relation": "on",
+                        "object": "counter"
                     },
                     {
-                        "subject": "spoon",
-                        "relation": "in",
-                        "object": "bowl"
+                        "subject": "honey",
+                        "relation": "held by",
+                        "object": "person's hand"
                     }
                 ],
                 "attribute": [
                     {
                         "subject": "honey",
                         "attribute": [
-                            "sticky",
+                            "liquid",
                             "golden brown"
                         ]
                     },
@@ -68746,26 +70266,26 @@
                         "subject": "bowl",
                         "attribute": [
                             "ceramic",
-                            "decorated with a pattern"
+                            "round"
                         ]
                     },
                     {
-                        "subject": "spoon",
+                        "subject": "person's hand",
                         "attribute": [
-                            "metal",
-                            "long"
+                            "human",
+                            "holding bottle"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The honey is in the bowl.",
-                    "The hand is holding the spoon.",
-                    "The spoon is in the bowl."
+                    "The honey is held above the bowl.",
+                    "The bowl is resting on the counter.",
+                    "The honey is being held by the person's hand."
                 ],
                 "attribute_sentence": [
-                    "The honey is sticky and golden brown.",
-                    "The bowl is ceramic and decorated with a pattern.",
-                    "The spoon is metal and long."
+                    "The honey is a golden brown liquid.",
+                    "The bowl is round and made of ceramic.",
+                    "The person's hand is human and is holding the bottle of honey."
                 ],
                 "action": "Add 1 tablespoon honey to the bowl",
                 "action_idx": 3,
@@ -71465,16 +72985,42 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "water",
+                        "relation": "in",
+                        "object": "bowl"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "water",
+                        "attribute": [
+                            "liquid",
+                            "transparent"
+                        ]
+                    },
+                    {
+                        "subject": "bowl",
+                        "attribute": [
+                            "circular",
+                            "pink",
+                            "made of plastic"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "Water is in the bowl."
+                ],
+                "attribute_sentence": [
+                    "The water is a transparent liquid, and the bowl is a circular pink container made of plastic."
+                ],
                 "action": "Add 1/6 cup water the bowl",
                 "action_idx": 20,
                 "time_stamp": [
                     52.2,
                     92.9
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -73755,16 +75301,65 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "fresh tofu",
+                        "relation": "on",
+                        "object": "cutting board"
+                    },
+                    {
+                        "subject": "cutting board",
+                        "relation": "next to",
+                        "object": "sink"
+                    },
+                    {
+                        "subject": "fresh tofu",
+                        "relation": "in front of",
+                        "object": "sink"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "fresh tofu",
+                        "attribute": [
+                            "rectangular",
+                            "white",
+                            "soft"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "rectangular",
+                            "wooden",
+                            "light brown"
+                        ]
+                    },
+                    {
+                        "subject": "sink",
+                        "attribute": [
+                            "metal",
+                            "circular drain",
+                            "silver"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The fresh tofu is on the cutting board.",
+                    "The cutting board is next to the sink.",
+                    "The fresh tofu is in front of the sink."
+                ],
+                "attribute_sentence": [
+                    "The fresh tofu is rectangular, white, and soft.",
+                    "The cutting board is rectangular, wooden, and light brown.",
+                    "The sink is made of metal and has a circular drain."
+                ],
                 "action": "Cut 1/4 block or 3 ounces of fresh tofu into large cubes (about 1 in x 1 in)",
                 "action_idx": 1,
                 "time_stamp": [
                     63.6,
                     73.3
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -74475,15 +76070,20 @@
                     },
                     {
                         "subject": "cutting board",
-                        "relation": "to the left of",
-                        "object": "fresh tofu"
+                        "relation": "in front of",
+                        "object": "tablet"
+                    },
+                    {
+                        "subject": "cutting board",
+                        "relation": "next to",
+                        "object": "paper towel"
                     }
                 ],
                 "attribute": [
                     {
                         "subject": "fresh tofu",
                         "attribute": [
-                            "cubed",
+                            "square",
                             "white"
                         ]
                     },
@@ -74493,15 +76093,32 @@
                             "rectangular",
                             "green"
                         ]
+                    },
+                    {
+                        "subject": "tablet",
+                        "attribute": [
+                            "black",
+                            "rectangular"
+                        ]
+                    },
+                    {
+                        "subject": "paper towel",
+                        "attribute": [
+                            "white",
+                            "rectangular"
+                        ]
                     }
                 ],
                 "relation_sentence": [
                     "The fresh tofu is on the cutting board.",
-                    "The cutting board is to the left of the fresh tofu."
+                    "The cutting board is in front of the tablet.",
+                    "The cutting board is next to the paper towel."
                 ],
                 "attribute_sentence": [
-                    "The fresh tofu is cubed and white.",
-                    "The cutting board is rectangular and green."
+                    "The fresh tofu is square and white.",
+                    "The cutting board is rectangular and green.",
+                    "The tablet is black and rectangular.",
+                    "The paper towel is white and rectangular."
                 ],
                 "action": "Cut 1/4 block or 3 ounces of fresh tofu into large cubes (about 1 in x 1 in)",
                 "action_idx": 1,
@@ -76706,16 +78323,70 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "tofu",
+                        "relation": "in",
+                        "object": "pan"
+                    },
+                    {
+                        "subject": "pan",
+                        "relation": "on",
+                        "object": "stove"
+                    },
+                    {
+                        "subject": "stove",
+                        "relation": "on",
+                        "object": "counter"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "tofu",
+                        "attribute": [
+                            "cubed",
+                            "cooked"
+                        ]
+                    },
+                    {
+                        "subject": "pan",
+                        "attribute": [
+                            "circular",
+                            "metal"
+                        ]
+                    },
+                    {
+                        "subject": "stove",
+                        "attribute": [
+                            "black",
+                            "flat surface"
+                        ]
+                    },
+                    {
+                        "subject": "counter",
+                        "attribute": [
+                            "gray",
+                            "granite-like"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The tofu is in the pan.",
+                    "The pan is on the stove.",
+                    "The stove is on the counter."
+                ],
+                "attribute_sentence": [
+                    "The tofu is cubed and cooked.",
+                    "The pan is circular and made of metal.",
+                    "The stove is black with a flat surface.",
+                    "The counter has a gray, granite-like appearance."
+                ],
                 "action": "cook pan for 2 minutes",
                 "action_idx": 15,
                 "time_stamp": [
                     897.9,
                     1012.5
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "flip tofu on the pan",
@@ -76738,48 +78409,40 @@
                     },
                     {
                         "subject": "pan",
-                        "relation": "contains",
-                        "object": "cooked food"
+                        "relation": "holding",
+                        "object": "cubes of food"
                     },
                     {
                         "subject": "heat",
-                        "relation": "below",
-                        "object": "pan"
+                        "relation": "producing",
+                        "object": "cooking"
                     }
                 ],
                 "attribute": [
                     {
                         "subject": "pan",
                         "attribute": [
-                            "metal",
-                            "round",
-                            "black"
+                            "circular",
+                            "black",
+                            "metal"
                         ]
                     },
                     {
                         "subject": "heat",
                         "attribute": [
-                            "active",
+                            "intense",
                             "source of cooking"
-                        ]
-                    },
-                    {
-                        "subject": "cooked food",
-                        "attribute": [
-                            "cubed",
-                            "golden brown"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The pan is on the heat.",
-                    "The pan contains cooked food.",
-                    "The heat is below the pan."
+                    "The pan is on the heat of the stove.",
+                    "The pan is holding the cubes of food while being heated.",
+                    "The heat is producing cooking actions for the food in the pan."
                 ],
                 "attribute_sentence": [
-                    "The pan is metal, round, and black.",
-                    "The heat is an active source of cooking.",
-                    "The cooked food is cubed and golden brown."
+                    "The pan has a circular shape and is made of black metal.",
+                    "The heat is intense and serves as the source for cooking."
                 ],
                 "action": "Return to low heat",
                 "action_idx": 10,
@@ -79295,38 +80958,50 @@
                 "relation": [
                     {
                         "subject": "paper cupcake liner",
-                        "relation": "next to",
+                        "relation": "above",
                         "object": "mug"
                     },
                     {
                         "subject": "mug",
-                        "relation": "in front of",
-                        "object": "sink"
+                        "relation": "next to",
+                        "object": "stove"
+                    },
+                    {
+                        "subject": "paper cupcake liner",
+                        "relation": "held by",
+                        "object": "hand"
                     }
                 ],
                 "attribute": [
                     {
                         "subject": "paper cupcake liner",
                         "attribute": [
-                            "paper",
-                            "circular"
+                            "rectangular",
+                            "colored"
                         ]
                     },
                     {
                         "subject": "mug",
                         "attribute": [
-                            "ceramic",
-                            "cylindrical"
+                            "circular",
+                            "yellow"
+                        ]
+                    },
+                    {
+                        "subject": "stove",
+                        "attribute": [
+                            "metal",
+                            "circular burners"
                         ]
                     }
                 ],
                 "relation_sentence": [
-                    "The paper cupcake liner is next to the mug.",
-                    "The mug is in front of the sink."
+                    "The paper cupcake liner is held above the mug.",
+                    "The mug is next to the stove."
                 ],
                 "attribute_sentence": [
-                    "The paper cupcake liner is made of paper and is circular in shape.",
-                    "The mug is made of ceramic and has a cylindrical shape."
+                    "The paper cupcake liner is rectangular and colored.",
+                    "The mug is circular and yellow."
                 ],
                 "action": "Place the paper cupcake liner inside the mug",
                 "action_idx": 10,
@@ -80009,12 +81684,12 @@
                     {
                         "subject": "mixing bowl",
                         "relation": "next to",
-                        "object": "sink"
+                        "object": "spoon"
                     },
                     {
                         "subject": "flour",
-                        "relation": "on",
-                        "object": "counter"
+                        "relation": "from",
+                        "object": "flour bag"
                     }
                 ],
                 "attribute": [
@@ -80022,33 +81697,41 @@
                         "subject": "flour",
                         "attribute": [
                             "white",
-                            "dry"
+                            "powdery"
                         ]
                     },
                     {
                         "subject": "mixing bowl",
                         "attribute": [
-                            "circular",
-                            "metal"
+                            "round",
+                            "ceramic"
                         ]
                     },
                     {
-                        "subject": "sink",
+                        "subject": "spoon",
                         "attribute": [
-                            "stainless steel",
-                            "functional"
+                            "metal",
+                            "long"
+                        ]
+                    },
+                    {
+                        "subject": "flour bag",
+                        "attribute": [
+                            "plastic",
+                            "blue design"
                         ]
                     }
                 ],
                 "relation_sentence": [
                     "The flour is in the mixing bowl.",
-                    "The mixing bowl is next to the sink.",
-                    "The flour is on the counter."
+                    "The mixing bowl is next to the spoon.",
+                    "The flour is from the flour bag."
                 ],
                 "attribute_sentence": [
-                    "The flour is white and dry.",
-                    "The mixing bowl is circular and made of metal.",
-                    "The sink is made of stainless steel and is functional."
+                    "The flour is white and powdery.",
+                    "The mixing bowl is round and made of ceramic.",
+                    "The spoon is metal and long.",
+                    "The flour bag is made of plastic with a blue design."
                 ],
                 "action": "Measure and add 2 tbsp flour to the mixing bowl",
                 "action_idx": 6,
@@ -82370,16 +84053,55 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "salt",
+                        "relation": "above",
+                        "object": "mixing bowl"
+                    },
+                    {
+                        "subject": "mixing bowl",
+                        "relation": "on",
+                        "object": "stove"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "salt",
+                        "attribute": [
+                            "white",
+                            "granular"
+                        ]
+                    },
+                    {
+                        "subject": "mixing bowl",
+                        "attribute": [
+                            "white",
+                            "round"
+                        ]
+                    },
+                    {
+                        "subject": "stove",
+                        "attribute": [
+                            "metal",
+                            "black"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The salt is positioned above the mixing bowl.",
+                    "The mixing bowl is placed on the stove."
+                ],
+                "attribute_sentence": [
+                    "The salt is white and granular, while the mixing bowl is white and round.",
+                    "The stove is made of metal and has a black surface."
+                ],
                 "action": "a pinch of salt to the mixing bowl",
                 "action_idx": 17,
                 "time_stamp": [
                     4.2,
                     45.2
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -85987,16 +87709,70 @@
                 ]
             },
             {
+                "relation": [
+                    {
+                        "subject": "can of tuna",
+                        "relation": "above",
+                        "object": "sink"
+                    },
+                    {
+                        "subject": "can of tuna",
+                        "relation": "in front of",
+                        "object": "faucet"
+                    },
+                    {
+                        "subject": "sink",
+                        "relation": "next to",
+                        "object": "cutting board"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "can of tuna",
+                        "attribute": [
+                            "circular",
+                            "metal"
+                        ]
+                    },
+                    {
+                        "subject": "sink",
+                        "attribute": [
+                            "stainless steel",
+                            "rectangular"
+                        ]
+                    },
+                    {
+                        "subject": "faucet",
+                        "attribute": [
+                            "shiny",
+                            "metal"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "rectangular",
+                            "wood"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The can of tuna is above the sink.",
+                    "The can of tuna is in front of the faucet.",
+                    "The sink is next to the cutting board."
+                ],
+                "attribute_sentence": [
+                    "The can of tuna is circular and made of metal.",
+                    "The sink is made of stainless steel and is rectangular.",
+                    "The faucet is shiny and made of metal.",
+                    "The cutting board is rectangular and made of wood."
+                ],
                 "action": "drain excess water from can",
                 "action_idx": 4,
                 "time_stamp": [
                     78.8,
                     136.4
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "Lay out 2 large lettuce leaves",
@@ -87553,28 +89329,21 @@
                 "relation": [
                     {
                         "subject": "knife",
-                        "relation": "next to",
+                        "relation": "above",
                         "object": "scallion"
                     },
                     {
                         "subject": "scallion",
                         "relation": "on",
-                        "object": "bowl"
+                        "object": "cutting board"
                     },
                     {
                         "subject": "knife",
-                        "relation": "on",
-                        "object": "cutting board"
+                        "relation": "held by",
+                        "object": "hand"
                     }
                 ],
                 "attribute": [
-                    {
-                        "subject": "scallion",
-                        "attribute": [
-                            "green",
-                            "long"
-                        ]
-                    },
                     {
                         "subject": "knife",
                         "attribute": [
@@ -87583,10 +89352,10 @@
                         ]
                     },
                     {
-                        "subject": "bowl",
+                        "subject": "scallion",
                         "attribute": [
-                            "white",
-                            "rounded"
+                            "green",
+                            "long"
                         ]
                     },
                     {
@@ -87598,14 +89367,13 @@
                     }
                 ],
                 "relation_sentence": [
-                    "The knife is next to the scallion.",
-                    "The scallion is on the bowl containing food.",
-                    "The knife is on the cutting board."
+                    "The knife is above the scallion.",
+                    "The scallion is on the cutting board.",
+                    "The knife is held by a hand."
                 ],
                 "attribute_sentence": [
+                    "The knife is metal and sharp.",
                     "The scallion is green and long.",
-                    "The knife is made of metal and is sharp.",
-                    "The bowl is white and rounded.",
                     "The cutting board is wooden and rectangular."
                 ],
                 "action": "Chop 1 scallion",
@@ -88264,16 +90032,70 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "Sriracha sauce",
+                        "relation": "above",
+                        "object": "bowl"
+                    },
+                    {
+                        "subject": "spoon",
+                        "relation": "in",
+                        "object": "bowl"
+                    },
+                    {
+                        "subject": "hand",
+                        "relation": "above",
+                        "object": "bowl"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "Sriracha sauce",
+                        "attribute": [
+                            "bottle",
+                            "red"
+                        ]
+                    },
+                    {
+                        "subject": "bowl",
+                        "attribute": [
+                            "round",
+                            "white"
+                        ]
+                    },
+                    {
+                        "subject": "spoon",
+                        "attribute": [
+                            "plastic",
+                            "blue"
+                        ]
+                    },
+                    {
+                        "subject": "hand",
+                        "attribute": [
+                            "human",
+                            "right"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The Sriracha sauce is above the bowl.",
+                    "The spoon is in the bowl.",
+                    "The hand is above the bowl."
+                ],
+                "attribute_sentence": [
+                    "The Sriracha sauce is contained in a red bottle.",
+                    "The bowl is round and white.",
+                    "The spoon is plastic and blue.",
+                    "The hand visible is a human right hand."
+                ],
                 "action": "1 tsp Sriracha sauce to the bowl",
                 "action_idx": 15,
                 "time_stamp": [
                     3.1,
                     114.2
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -90616,16 +92438,64 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "baguette",
+                        "relation": "next to",
+                        "object": "knife"
+                    },
+                    {
+                        "subject": "knife",
+                        "relation": "on",
+                        "object": "cutting board"
+                    },
+                    {
+                        "subject": "baguette",
+                        "relation": "on",
+                        "object": "cutting board"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "baguette",
+                        "attribute": [
+                            "long",
+                            "brown",
+                            "baked"
+                        ]
+                    },
+                    {
+                        "subject": "knife",
+                        "attribute": [
+                            "metal",
+                            "sharp",
+                            "green handle"
+                        ]
+                    },
+                    {
+                        "subject": "cutting board",
+                        "attribute": [
+                            "wooden",
+                            "rectangular"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The baguette is next to the knife.",
+                    "The knife is on the cutting board.",
+                    "The baguette is on the cutting board."
+                ],
+                "attribute_sentence": [
+                    "The baguette is long, brown, and baked.",
+                    "The knife is metal, sharp, and has a green handle.",
+                    "The cutting board is wooden and rectangular."
+                ],
                 "action": "Slice two 1/2 inch thick rounds from a baguette (slice slanted)",
                 "action_idx": 3,
                 "time_stamp": [
                     1.9,
                     84.8
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",
@@ -91877,16 +93747,62 @@
                 "attribute_sentence": []
             },
             {
+                "relation": [
+                    {
+                        "subject": "pepper",
+                        "relation": "above",
+                        "object": "bowl"
+                    },
+                    {
+                        "subject": "pepper",
+                        "relation": "next to",
+                        "object": "spoon"
+                    },
+                    {
+                        "subject": "bowl",
+                        "relation": "on",
+                        "object": "countertop"
+                    }
+                ],
+                "attribute": [
+                    {
+                        "subject": "pepper",
+                        "attribute": [
+                            "container",
+                            "white"
+                        ]
+                    },
+                    {
+                        "subject": "bowl",
+                        "attribute": [
+                            "circular",
+                            "white"
+                        ]
+                    },
+                    {
+                        "subject": "spoon",
+                        "attribute": [
+                            "long",
+                            "red"
+                        ]
+                    }
+                ],
+                "relation_sentence": [
+                    "The pepper container is above the bowl.",
+                    "The pepper is next to the spoon.",
+                    "The bowl is on the countertop."
+                ],
+                "attribute_sentence": [
+                    "The pepper is in a white container.",
+                    "The bowl is circular and white.",
+                    "The spoon is long and red."
+                ],
                 "action": "1/4 tsp pepper to a bowl",
                 "action_idx": 5,
                 "time_stamp": [
                     114.4,
                     158.0
-                ],
-                "relation": [],
-                "attribute": [],
-                "relation_sentence": [],
-                "attribute_sentence": []
+                ]
             },
             {
                 "action": "BG",

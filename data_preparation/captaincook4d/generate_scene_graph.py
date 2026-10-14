@@ -127,7 +127,7 @@ def main():
                 objectB = action_objects[recipe][action]["objectB"]
                 seg_folder, frame = (None, None)
                 if os.path.isdir(effect_vid_dir):
-                    seg_folder, frame = find_ccp4d_effect_frame(effect_vid_dir, time_stamp[0])
+                    seg_folder, frame = find_ccp4d_effect_frame(effect_vid_dir, time_stamp)
                 if seg_folder is None:
                     graphs.append(empty_scene_graph(action, label, time_stamp))
                     continue

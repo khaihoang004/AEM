@@ -137,10 +137,13 @@ class PtTransformer(nn.Module):
         )
         
         self.action_model = Action_Model(
-            vis_input_dim=fpn_dim, 
+            vis_input_dim=fpn_dim,
             txt_input_dim=action_model_cfg['txt_input_dim'],
-            feat_dim=action_model_cfg['feat_dim'], 
-            num_actions=self.num_classes, length_prompt=4
+            feat_dim=action_model_cfg['feat_dim'],
+            num_actions=self.num_classes,
+            prefix_length=action_model_cfg.get('prefix_length', 4),
+            ce_loss_weight=action_model_cfg.get('ce_loss_weight', 1.0),
+            focal_loss_weight=action_model_cfg.get('focal_loss_weight', 1.0)
         )
 
         self.effect_model = Effect_Model(
@@ -222,20 +225,24 @@ class PtTransformer(nn.Module):
             list: List of segment-wise visual features extracted from the frame-wise features.
         """
         valid_mask = fpn_masks[0]
+        # valid frames of all videos, concatenated along time: (sum_i T_i, C)
         frame_vis_feat = fpn_feats[0].permute(0, 2, 1)[valid_mask]
-        
-        # Merge and extract segments
-        merged_gt_segments = [action_segments[0]]
-        for i in range(1, len(action_segments)):
-            offset = merged_gt_segments[-1][-1][-1] + 1
-            merged_gt_segments.append(action_segments[i] + offset)
-        merged_gt_segments = torch.concat(merged_gt_segments, dim=0).to(self.device)
-        
-        starts = torch.clamp(torch.tensor([seg[0] for seg in merged_gt_segments]), min=0).long()
-        ends = torch.clamp(torch.tensor([seg[1] for seg in merged_gt_segments]), 
-                          max=frame_vis_feat.shape[0]).long()
-        
-        return [frame_vis_feat[start:end+1] for start, end in zip(starts, ends)]
+
+        # Each video's frames start where the previous video's *valid frames* end. Offsetting
+        # by the previous video's last segment end instead misaligns every later video in the
+        # batch whenever its annotations do not end exactly on its last frame.
+        video_lens = valid_mask.sum(dim=1).tolist()
+        segment_features = []
+        offset = 0
+        for segs, video_len in zip(action_segments, video_lens):
+            for seg in segs.tolist():
+                # clamp to this video's own frames so a segment never reads into the next video
+                end = min(max(int(seg[1]), 0), video_len - 1)
+                start = min(max(int(seg[0]), 0), end)
+                segment_features.append(frame_vis_feat[offset + start:offset + end + 1])
+            offset += video_len
+
+        return segment_features
 
     def forward(self, clip_model, video_list, action_tokens, cur_epoch=-1, tot_epoch=-1):
         """Main forward pass for training.
@@ -271,13 +278,13 @@ class PtTransformer(nn.Module):
             device=self.device
         )
         
-        # Action model losses
+        # Mistake-detector losses (L_det)
         segment_vis_feature = torch.stack([seg.mean(dim=0) for seg in enhanced_segments], dim=0)
-        action_loss, action_align_acc = self.action_model(
+        det_losses, action_align_acc = self.action_model(
             clip_model=clip_model, segment_vis_feature=segment_vis_feature,
             action_tokens=action_tokens, action_labels=gt_labels, device=self.device
         )
-        losses["action_contrast_loss"] = action_loss
+        losses.update(det_losses)
         
         # Compute final losses
         updated_losses = self._compute_losses(
@@ -442,7 +449,7 @@ class PtTransformer(nn.Module):
                 - cls_loss: Classification loss
                 - reg_loss: Regression loss
                 - final_loss: Weighted sum of all losses
-                - Other auxiliary losses (effect_loss, action_contrast_loss, etc.)
+                - Other auxiliary losses (effect_loss, det_ce_loss, det_focal_loss, etc.)
         """
         valid_mask = torch.cat(fpn_masks, dim=1)
         gt_cls = torch.stack(gt_cls_labels)
@@ -451,10 +458,17 @@ class PtTransformer(nn.Module):
         pred_offsets = torch.cat(out_offsets, dim=1)[pos_mask]
         gt_offsets = torch.stack(gt_offsets)[pos_mask]
 
-        # Update loss normalizer
+        # Loss normalizer: a running average of the number of positive points, updated in
+        # training only. Validation normalises each video by its own positives instead, so a
+        # validation loss neither moves nor depends on the training state and stays comparable
+        # across epochs (it is used to select the best epoch).
         num_pos = pos_mask.sum().item()
-        self.loss_normalizer = self.loss_normalizer_momentum * self.loss_normalizer + \
-                              (1 - self.loss_normalizer_momentum) * max(num_pos, 1)
+        if self.training:
+            self.loss_normalizer = self.loss_normalizer_momentum * self.loss_normalizer + \
+                                  (1 - self.loss_normalizer_momentum) * max(num_pos, 1)
+            normalizer = self.loss_normalizer
+        else:
+            normalizer = max(num_pos, 1)
 
         # Classification loss
         gt_target = gt_cls[valid_mask]
@@ -464,12 +478,12 @@ class PtTransformer(nn.Module):
         cls_loss = sigmoid_focal_loss(
             torch.cat(out_cls_logits, dim=1)[valid_mask], gt_target,
             reduction='sum', gamma=0.0
-        ) / self.loss_normalizer
+        ) / normalizer
 
         if num_pos == 0:
             reg_loss = 0 * pred_offsets.sum()
         else:
-            reg_loss = ctr_diou_loss_1d(pred_offsets, gt_offsets, reduction='sum') / self.loss_normalizer
+            reg_loss = ctr_diou_loss_1d(pred_offsets, gt_offsets, reduction='sum') / normalizer
 
         losses.update({'cls_loss': cls_loss, 'reg_loss': reg_loss})
 
@@ -477,7 +491,7 @@ class PtTransformer(nn.Module):
         loss_keys_to_normalize = [key for key in losses.keys() 
                                  if key not in ['cls_loss', 'reg_loss']]
         for key in loss_keys_to_normalize:
-            losses[key] /= self.loss_normalizer
+            losses[key] /= normalizer
 
         # Calculate loss weights and final loss
         loss_weights = self._calculate_loss_weights(cls_loss, losses, loss_keys_to_normalize)

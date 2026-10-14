@@ -1,7 +1,6 @@
 import copy
 import random
 import numpy as np
-import random
 import torch
 
 # generate time stamps from frame-wise labels
@@ -35,9 +34,8 @@ def to_frame_wise(segments, labels, scores, length, default_cls=0, fps=1):
                 preds[int(segments[j, 0]*fps):int(segments[j, 1]*fps+1)] = labels[j]
     else:
         asce_scores, indices = torch.sort(scores, 0)
-        error_indices = []
         for j in indices:
-            if segments[j, 1] != segments[j, 0]: #and scores[j] > 0.3:
+            if segments[j, 1] != segments[j, 0]:
                 preds[int(segments[j, 0]*fps):int(segments[j, 1]*fps+1)] = labels[j]
 
     return preds.long()
@@ -86,13 +84,11 @@ def truncate_feats(
                 max(round(crop_ratio[0] * feat_len), 1),
                 min(round(crop_ratio[1] * feat_len), feat_len),
             )
-            # # corner case
+            # corner case
             if feat_len == max_seq_len:
-                #print('corner')
                 return data_dict
 
     # otherwise, deep copy the dict
-    # truncate_data_dict = partial_deepcopy(data_dict, exclude_keys=['vlm_info'])
     truncate_data_dict = copy.deepcopy(data_dict)
 
     # try a few times till a valid truncation with at least one action
@@ -218,11 +214,13 @@ def generate_node_connected(object_info, num_node, height, width, remove_unknown
             if remove_unknown and object_info[i][j]['category_id'] == 42:
                 continue
             object_cate[j] = object_info[i][j]['category_id']
-            x_min, y_min, width, height = object_info[i][j]['bbox']
+            # bbox is (x_min, y_min, box_w, box_h) in pixels; normalise by the frame size,
+            # not by the box size (the box size must not shadow `width` / `height`)
+            x_min, y_min, box_w, box_h = object_info[i][j]['bbox']
             object_bbox[j, 0] = x_min / width
             object_bbox[j, 1] = y_min / height
-            object_bbox[j, 2] = (x_min + width) / width
-            object_bbox[j, 3] = (y_min + height) / height
+            object_bbox[j, 2] = (x_min + box_w) / width
+            object_bbox[j, 3] = (y_min + box_h) / height
         if i == 0:
             object_cate_all = np.expand_dims(object_cate, axis=0)
             object_bbox_all = np.expand_dims(object_bbox, axis=0)

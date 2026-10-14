@@ -53,7 +53,7 @@ def main():
             has_desc = "Description of OBJECT A" in seg and "Description of OBJECT B" in seg
             if has_desc:
                 seg_folder, frame = find_egoper_effect_frame(
-                    os.path.join(effect_root, vid), seg["action"], seg["time_stamp"][0])
+                    os.path.join(effect_root, vid), seg["action"], seg["time_stamp"])
             else:
                 seg_folder = frame = None
 

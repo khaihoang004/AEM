@@ -1,7 +1,7 @@
 dataset_name: CaptainCook4D
 train_split: train      # non-error recordings of the recipe (one-class training)
 test_split: test        # erroneous recordings of the recipe
-val_split: test
+val_split: null         # no validation split: every error-free recording is used for training
 model_name: LocPointTransformer
 devices: ['cuda']
 dataset: {
@@ -21,7 +21,10 @@ model: {
   n_mha_win_size: 19,
   action_model_cfg: {
     txt_input_dim: 768,
-    feat_dim: 128
+    feat_dim: 128,
+    prefix_length: 4,          # learnable prompt prefix p (Eq. 7); 0 = fixed prompts
+    ce_loss_weight: 1.0,       # softmax contrastive loss over action prompts (Eq. 8)
+    focal_loss_weight: 1.0     # sigmoid focal loss on the same prompt logits
   },
   effect_model_cfg: {
     vis_input_dim: 768,

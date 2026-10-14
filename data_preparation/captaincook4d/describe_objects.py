@@ -13,7 +13,6 @@ Run from the AEM/ directory:
 """
 
 import argparse
-import math
 import os
 import re
 import sys
@@ -104,7 +103,7 @@ def main():
                 objectB = action_objects[recipe][action]["objectB"]
                 seg_folder, frame = (None, None)
                 if os.path.isdir(effect_vid_dir):
-                    seg_folder, frame = find_ccp4d_effect_frame(effect_vid_dir, time_stamp[0])
+                    seg_folder, frame = find_ccp4d_effect_frame(effect_vid_dir, time_stamp)
                 if seg_folder is None:
                     print(f"  no effect frame for '{action}', skipping segment")
                     segments.append({"action": action, "action_idx": label,
