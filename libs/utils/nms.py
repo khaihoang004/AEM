@@ -2,7 +2,10 @@
 # https://github.com/open-mmlab/mmcv/blob/master/mmcv/ops/nms.py
 import torch
 
-import nms_1d_cpu
+try:
+    import nms_1d_cpu
+except ImportError:
+    from . import nms_1d_cpu
 
 
 class NMSop(torch.autograd.Function):

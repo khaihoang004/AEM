@@ -32,11 +32,142 @@ from libs.core import load_config
 from libs.datasets import make_dataset, make_data_loader
 from libs.modeling import make_meta_arch
 from libs.utils import fix_random_seed
-from metric import evaluate_seg
+from metric import framewise_to_segments
 
 warnings.filterwarnings("ignore")
 
 DEFAULT_SPLIT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "person_data_split_combined.json")
+F1_THRESHOLDS = (0.10, 0.25, 0.50, 0.75)
+
+
+def compute_extended_seg_metrics(list_of_y_true, list_of_y_pred, ignore_bg=False, bg_class=0):
+    """Compute comprehensive Action Segmentation metrics (with or without Background class).
+
+    Metrics returned (percentages in [0, 100], except segment counts & ratio):
+      - Accuracy: micro frame accuracy (ignoring frames where y_true == bg_class if ignore_bg=True)
+      - mIoU: macro average across videos of per-video mean class IoU
+      - Edit: macro average across videos of normalized Levenshtein edit score
+      - F1@10, F1@25, F1@50, F1@75 (and alias F1@0.5): macro average across videos
+      - pred_segs: total predicted segments across all evaluated videos
+      - gt_segs: total ground-truth segments across all evaluated videos
+      - frag_ratio: fragmentation / over-segmentation ratio (#Pred / #GT)
+    """
+    total_correct = 0
+    total_frames = 0
+    ious = []
+    edits = []
+    f1_by_tau = {tau: [] for tau in F1_THRESHOLDS}
+    total_pred_segs = 0
+    total_gt_segs = 0
+
+    for y_true, y_pred in zip(list_of_y_true, list_of_y_pred):
+        min_len = min(len(y_true), len(y_pred))
+        yt = np.asarray(y_true[:min_len])
+        yp = np.asarray(y_pred[:min_len])
+
+        # 1. Frame Accuracy
+        if ignore_bg:
+            valid_mask = yt != bg_class
+            total_correct += int(np.sum(yt[valid_mask] == yp[valid_mask]))
+            total_frames += int(np.sum(valid_mask))
+        else:
+            total_correct += int(np.sum(yt == yp))
+            total_frames += len(yt)
+
+        # 2. Per-video mIoU
+        all_classes = np.unique(np.concatenate((yt, yp)))
+        if ignore_bg:
+            all_classes = [c for c in all_classes if c != bg_class]
+        inter_sum, valid_cls = 0.0, 0
+        for cls in all_classes:
+            inter = np.sum((yt == cls) & (yp == cls))
+            uni = np.sum((yt == cls) | (yp == cls))
+            if uni > 0:
+                inter_sum += inter / uni
+                valid_cls += 1
+        ious.append((inter_sum / valid_cls) if valid_cls > 0 else 0.0)
+
+        # Extract contiguous segments: list of (label, start, end)
+        gt_segs = framewise_to_segments(yt)
+        pred_segs = framewise_to_segments(yp)
+        if ignore_bg:
+            gt_segs = [s for s in gt_segs if s[0] != bg_class]
+            pred_segs = [s for s in pred_segs if s[0] != bg_class]
+
+        total_gt_segs += len(gt_segs)
+        total_pred_segs += len(pred_segs)
+
+        # 3. Edit Score (Levenshtein on segment label sequence)
+        t_seq = [s[0] for s in gt_segs]
+        p_seq = [s[0] for s in pred_segs]
+        len_t, len_p = len(t_seq), len(p_seq)
+        if len_t == 0 and len_p == 0:
+            edits.append(1.0)
+        elif max(len_t, len_p) == 0:
+            edits.append(0.0)
+        else:
+            D = np.zeros((len_p + 1, len_t + 1), dtype=int)
+            D[:, 0] = np.arange(len_p + 1)
+            D[0, :] = np.arange(len_t + 1)
+            for i in range(1, len_p + 1):
+                for j in range(1, len_t + 1):
+                    if p_seq[i - 1] == t_seq[j - 1]:
+                        D[i, j] = D[i - 1, j - 1]
+                    else:
+                        D[i, j] = 1 + min(D[i - 1, j], D[i, j - 1], D[i - 1, j - 1])
+            edits.append(1.0 - D[len_p, len_t] / max(len_p, len_t))
+
+        # 4. Segment-level F1@{10, 25, 50, 75}
+        for tau in F1_THRESHOLDS:
+            matched_gt = set()
+            tp = 0
+            for p_lbl, p_s, p_e in pred_segs:
+                best_iou = 0.0
+                best_g_idx = None
+                for g_idx, (g_lbl, g_s, g_e) in enumerate(gt_segs):
+                    if g_idx in matched_gt or g_lbl != p_lbl:
+                        continue
+                    inter = max(0, min(p_e, g_e) - max(p_s, g_s) + 1)
+                    uni = (p_e - p_s + 1) + (g_e - g_s + 1) - inter
+                    iou = inter / uni if uni > 0 else 0.0
+                    if iou > best_iou:
+                        best_iou = iou
+                        best_g_idx = g_idx
+                if best_iou >= tau and best_g_idx is not None:
+                    tp += 1
+                    matched_gt.add(best_g_idx)
+
+            fp = len(pred_segs) - tp
+            fn = len(gt_segs) - len(matched_gt)
+            if (tp + fp) == 0 or (tp + fn) == 0 or tp == 0:
+                f1_by_tau[tau].append(0.0)
+            else:
+                prec = tp / (tp + fp)
+                rec = tp / (tp + fn)
+                f1_by_tau[tau].append(2.0 * prec * rec / (prec + rec))
+
+    acc = (total_correct / total_frames * 100.0) if total_frames > 0 else 0.0
+    mIoU = float(np.mean(ious)) * 100.0 if ious else 0.0
+    edit = float(np.mean(edits)) * 100.0 if edits else 0.0
+    f1_10 = float(np.mean(f1_by_tau[0.10])) * 100.0 if f1_by_tau[0.10] else 0.0
+    f1_25 = float(np.mean(f1_by_tau[0.25])) * 100.0 if f1_by_tau[0.25] else 0.0
+    f1_50 = float(np.mean(f1_by_tau[0.50])) * 100.0 if f1_by_tau[0.50] else 0.0
+    f1_75 = float(np.mean(f1_by_tau[0.75])) * 100.0 if f1_by_tau[0.75] else 0.0
+    frag_ratio = (total_pred_segs / total_gt_segs) if total_gt_segs > 0 else 0.0
+
+    return {
+        "Accuracy": acc,
+        "mIoU": mIoU,
+        "Edit": edit,
+        "F1@10": f1_10,
+        "F1@25": f1_25,
+        "F1@50": f1_50,
+        "F1@75": f1_75,
+        "F1@0.5": f1_50,
+        "pred_segs": int(total_pred_segs),
+        "gt_segs": int(total_gt_segs),
+        "frag_ratio": float(frag_ratio),
+    }
 
 def resolve_ckpt_file(ckpt, epoch=-1, is_best=False):
     """Resolve a checkpoint path, which may be a file or a folder of epoch checkpoints."""
@@ -80,9 +211,19 @@ def load_weights(model, ckpt_file, use_ema=False):
     return model
 
 
+def _resolve_root_dir(cfg):
+    """Ensure cfg['dataset']['root_dir'] resolves relative to REPO_ROOT if not found from cwd."""
+    root_dir = cfg["dataset"]["root_dir"]
+    if not os.path.isabs(root_dir) and not os.path.exists(root_dir):
+        candidate = os.path.join(REPO_ROOT, root_dir)
+        if os.path.exists(candidate):
+            cfg["dataset"]["root_dir"] = candidate
+    return cfg["dataset"]["root_dir"]
+
+
 def build_action_name_map(cfg):
     """Return {action_id: action_name} for human-readable segment inspection."""
-    root_dir = cfg["dataset"]["root_dir"]
+    root_dir = _resolve_root_dir(cfg)
     task = str(cfg["dataset"]["task"])
     id2name = {0: "BG (background)"}
 
@@ -478,6 +619,7 @@ def evaluate_task(
 ):
     """Evaluate segmentation branch on one task/recipe without loading OpenCLIP."""
     _ = fix_random_seed(0, include_cuda=True)
+    _resolve_root_dir(cfg)
 
     task = str(cfg["dataset"]["task"])
     if split_file and cfg["dataset_name"] == "CaptainCook4D":
@@ -529,17 +671,46 @@ def evaluate_task(
         list_of_gt_frame_action.append(v["frame_action_label"].clone().cpu().numpy())
         list_of_pred_frame_action.append(v["frame_action_pred"].clone().cpu().numpy())
 
-    seg_outputs = evaluate_seg(list_of_gt_frame_action, list_of_pred_frame_action)
+    seg_with_bg = compute_extended_seg_metrics(list_of_gt_frame_action, list_of_pred_frame_action, ignore_bg=False)
+    seg_no_bg = compute_extended_seg_metrics(list_of_gt_frame_action, list_of_pred_frame_action, ignore_bg=True)
+
     print(
-        "Segmentation Accuracy: {:.2f}% | mIoU: {:.2f}% | Edit: {:.2f}% | F1@0.5: {:.2f}% | Videos: {} | Time: {:.2f}s".format(
-            seg_outputs["Accuracy"],
-            seg_outputs["mIoU"],
-            seg_outputs["Edit"],
-            seg_outputs["F1@0.5"],
+        "  [With BG]    Acc: {:5.2f}% | mIoU: {:5.2f}% | Edit: {:5.2f}% | "
+        "F1@(10/25/50/75): {:5.2f}/{:5.2f}/{:5.2f}/{:5.2f} | "
+        "#Pred/#GT: {:3d}/{:3d} ({:.2f}x) | Videos: {} | {:.2f}s".format(
+            seg_with_bg["Accuracy"],
+            seg_with_bg["mIoU"],
+            seg_with_bg["Edit"],
+            seg_with_bg["F1@10"],
+            seg_with_bg["F1@25"],
+            seg_with_bg["F1@50"],
+            seg_with_bg["F1@75"],
+            seg_with_bg["pred_segs"],
+            seg_with_bg["gt_segs"],
+            seg_with_bg["frag_ratio"],
             len(results),
             elapsed,
         )
     )
+    print(
+        "  [Without BG] Acc: {:5.2f}% | mIoU: {:5.2f}% | Edit: {:5.2f}% | "
+        "F1@(10/25/50/75): {:5.2f}/{:5.2f}/{:5.2f}/{:5.2f} | "
+        "#Pred/#GT: {:3d}/{:3d} ({:.2f}x)".format(
+            seg_no_bg["Accuracy"],
+            seg_no_bg["mIoU"],
+            seg_no_bg["Edit"],
+            seg_no_bg["F1@10"],
+            seg_no_bg["F1@25"],
+            seg_no_bg["F1@50"],
+            seg_no_bg["F1@75"],
+            seg_no_bg["pred_segs"],
+            seg_no_bg["gt_segs"],
+            seg_no_bg["frag_ratio"],
+        )
+    )
+
+    seg_outputs = dict(seg_with_bg)
+    seg_outputs["no_bg"] = seg_no_bg
 
     fps = cfg["dataset"].get("default_fps", 10.0)
     if show_videos > 0:
@@ -568,7 +739,8 @@ def evaluate_task(
             "task": task,
             "split_file": split_file,
             "split_subset": split_subset if split_file else cfg["test_split"],
-            "metrics": {k: float(v) for k, v in seg_outputs.items()},
+            "metrics_with_bg": {k: float(v) for k, v in seg_with_bg.items()},
+            "metrics_no_bg": {k: float(v) for k, v in seg_no_bg.items()},
             "videos": {},
         }
         for vid, v in results.items():
@@ -599,7 +771,7 @@ def evaluate_all_ccp4d(
 ):
     """Evaluate all available CaptainCook4D recipe checkpoints in `ckpt_dir`."""
     cfg_base = load_config(config_path)
-    root_dir = cfg_base["dataset"]["root_dir"]
+    root_dir = _resolve_root_dir(cfg_base)
     with open(os.path.join(root_dir, "id_activity_mapping.json"), "r") as fp:
         id_activity = json.load(fp)
 
@@ -631,24 +803,49 @@ def evaluate_all_ccp4d(
             all_metrics.append(out)
 
     if all_metrics:
-        print("\n" + "=" * 75)
-        print(f"{'Task':<6} {'Recipe':<34} {'Acc':>7} {'mIoU':>7} {'Edit':>7} {'F1@0.5':>7}")
-        print("-" * 75)
-        for m in all_metrics:
-            print(
-                f"{m['task_id']:<6} {m['activity']:<34} "
-                f"{m['Accuracy']:7.2f} {m['mIoU']:7.2f} {m['Edit']:7.2f} {m['F1@0.5']:7.2f}"
+        def _print_summary_table(title, items):
+            print("\n" + "=" * 112)
+            print(f" {title}")
+            print("=" * 112)
+            header = (
+                f"{'Task':<5} {'Recipe':<31} {'Acc':>6} {'mIoU':>6} {'Edit':>6} "
+                f"{'F1@10':>6} {'F1@25':>6} {'F1@50':>6} {'F1@75':>6} "
+                f"{'#Pred/#GT':>11} {'Frag':>6}"
             )
-        print("-" * 75)
-        mean_acc = np.mean([m["Accuracy"] for m in all_metrics])
-        mean_iou = np.mean([m["mIoU"] for m in all_metrics])
-        mean_edit = np.mean([m["Edit"] for m in all_metrics])
-        mean_f1 = np.mean([m["F1@0.5"] for m in all_metrics])
-        print(
-            f"{'AVG':<6} {'(' + str(len(all_metrics)) + ' recipes)':<34} "
-            f"{mean_acc:7.2f} {mean_iou:7.2f} {mean_edit:7.2f} {mean_f1:7.2f}"
-        )
-        print("=" * 75)
+            print(header)
+            print("-" * 112)
+            for tid, rname, m in items:
+                seg_str = f"{m['pred_segs']}/{m['gt_segs']}"
+                print(
+                    f"{tid:<5} {rname[:31]:<31} "
+                    f"{m['Accuracy']:6.2f} {m['mIoU']:6.2f} {m['Edit']:6.2f} "
+                    f"{m['F1@10']:6.2f} {m['F1@25']:6.2f} {m['F1@50']:6.2f} {m['F1@75']:6.2f} "
+                    f"{seg_str:>11} {m['frag_ratio']:5.2f}x"
+                )
+            print("-" * 112)
+            mean_acc = np.mean([m["Accuracy"] for _, _, m in items])
+            mean_iou = np.mean([m["mIoU"] for _, _, m in items])
+            mean_edit = np.mean([m["Edit"] for _, _, m in items])
+            mean_f1_10 = np.mean([m["F1@10"] for _, _, m in items])
+            mean_f1_25 = np.mean([m["F1@25"] for _, _, m in items])
+            mean_f1_50 = np.mean([m["F1@50"] for _, _, m in items])
+            mean_f1_75 = np.mean([m["F1@75"] for _, _, m in items])
+            tot_pred = sum(m["pred_segs"] for _, _, m in items)
+            tot_gt = sum(m["gt_segs"] for _, _, m in items)
+            tot_frag = (tot_pred / tot_gt) if tot_gt > 0 else 0.0
+            tot_seg_str = f"{tot_pred}/{tot_gt}"
+            print(
+                f"{'AVG':<5} {'(' + str(len(items)) + ' recipes)':<31} "
+                f"{mean_acc:6.2f} {mean_iou:6.2f} {mean_edit:6.2f} "
+                f"{mean_f1_10:6.2f} {mean_f1_25:6.2f} {mean_f1_50:6.2f} {mean_f1_75:6.2f} "
+                f"{tot_seg_str:>11} {tot_frag:5.2f}x"
+            )
+            print("=" * 112)
+
+        with_bg_items = [(m["task_id"], m["activity"], m) for m in all_metrics]
+        no_bg_items = [(m["task_id"], m["activity"], m["no_bg"]) for m in all_metrics]
+        _print_summary_table("SUMMARY TABLE 1: WITH BACKGROUND (Class 0 Included)", with_bg_items)
+        _print_summary_table("SUMMARY TABLE 2: WITHOUT BACKGROUND (Action Steps Only, Class > 0)", no_bg_items)
 
 
 def main():
