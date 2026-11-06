@@ -176,6 +176,8 @@ def train_single_task(
 
     if args.epochs > 0:
         cfg["opt"]["epochs"] = args.epochs
+    if args.batch_size > 0:
+        cfg["loader"]["batch_size"] = args.batch_size
     if args.lr > 0:
         cfg["opt"]["learning_rate"] = args.lr
     if args.prefix_length >= 0:
@@ -286,7 +288,7 @@ def train_single_task(
         model_ema.module.load_state_dict(same_shape(ema_state, model_ema.module)[0], strict=False)
 
         # If resuming an interrupted run of the exact same task (no shape-mismatched head),
-        # also restore epoch, optimizer, and scheduler!
+        # also restore epoch, optimizer, and scheduler (recomputing step if batch_size changed)!
         if (is_same_task_resume or (len(skipped) == 0 and checkpoint.get("task_id") == str(task_id))) and "epoch" in checkpoint:
             start_epoch = int(checkpoint["epoch"])
             if "optimizer" in checkpoint and start_epoch < max_epochs:
@@ -294,13 +296,15 @@ def train_single_task(
                     optimizer.load_state_dict(checkpoint["optimizer"])
                 except Exception:
                     pass
-            if "scheduler" in checkpoint and start_epoch < max_epochs:
-                try:
-                    scheduler.load_state_dict(checkpoint["scheduler"])
-                except Exception:
-                    pass
+            if start_epoch < max_epochs:
+                # Re-build scheduler with `last_epoch = start_epoch * len(train_loader) - 1` so changing
+                # --batch_size mid-training still aligns the cosine curve with `start_epoch`!
+                scheduler = make_scheduler(
+                    optimizer, cfg["opt"], len(train_loader), last_epoch=start_epoch * len(train_loader) - 1
+                )
             print(
-                f"  [Auto-Resume] Restored Task {task_id} from '{resume_ckpt}' at Epoch {start_epoch}/{max_epochs}"
+                f"  [Auto-Resume] Restored Task {task_id} from '{resume_ckpt}' at Epoch {start_epoch}/{max_epochs} "
+                f"(batch_size={cfg['loader']['batch_size']}, {len(train_loader)} batches/ep)"
             )
         else:
             print(
@@ -448,6 +452,8 @@ def main():
                              "'all' for all 24 recipes trained sequentially, or e.g. '1,10,12'")
     parser.add_argument("--epochs", type=int, default=100,
                         help="Number of training epochs per recipe (paper default: 100)")
+    parser.add_argument("--batch_size", type=int, default=-1,
+                        help="Override training batch_size (default: use config's 2; e.g. --batch_size 8 or 16)")
     parser.add_argument("--lr", type=float, default=-1.0,
                         help="Override learning rate (default: use config's 0.0001)")
     parser.add_argument("--prefix_length", type=int, default=-1,
