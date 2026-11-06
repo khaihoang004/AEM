@@ -41,6 +41,7 @@ class PrefixPromptTextEncoder:
         if text.cls_emb is not None or text.pool_type != 'argmax':
             raise NotImplementedError("prefix prompts assume argmax (EOT) pooling and no CLS embedding")
 
+        cast_dtype = text.transformer.get_cast_dtype()
         num_prompts, context_len = text_tokens.shape
         prefix_len = prefix.shape[0]
         eot_idx = text_tokens.argmax(dim=-1)  # EOT has the largest token id
@@ -49,22 +50,40 @@ class PrefixPromptTextEncoder:
         assert prefix.shape[1] == text.token_embedding.embedding_dim, \
             "prefix dim must match the CLIP token-embedding width"
 
-        cast_dtype = text.transformer.get_cast_dtype()
-        token_embeds = text.token_embedding(text_tokens).to(cast_dtype)          # (C, L, D)
-        prefix = prefix.to(cast_dtype).unsqueeze(0).expand(num_prompts, -1, -1)  # (C, M, D)
-        x = torch.cat([token_embeds[:, :1], prefix, token_embeds[:, 1:context_len - prefix_len]], dim=1)
+        def _encode_chunk(tok_chunk, eot_chunk):
+            c_sz = tok_chunk.shape[0]
+            token_embeds = text.token_embedding(tok_chunk).to(cast_dtype)            # (c_sz, L, D)
+            pref = prefix.to(cast_dtype).unsqueeze(0).expand(c_sz, -1, -1)           # (c_sz, M, D)
+            x = torch.cat([token_embeds[:, :1], pref, token_embeds[:, 1:context_len - prefix_len]], dim=1)
+            x = x + text.positional_embedding.to(cast_dtype)
+            x = text.transformer(x, attn_mask=text.attn_mask)
+            x = text.ln_final(x)
+            pooled = x[torch.arange(c_sz, device=x.device), eot_chunk + prefix_len]
+            if text.text_projection is not None:
+                if isinstance(text.text_projection, nn.Linear):
+                    pooled = text.text_projection(pooled)
+                else:
+                    pooled = pooled @ text.text_projection
+            return pooled
 
-        x = x + text.positional_embedding.to(cast_dtype)
-        x = text.transformer(x, attn_mask=text.attn_mask)
-        x = text.ln_final(x)
-        pooled = x[torch.arange(num_prompts, device=x.device), eot_idx + prefix_len]
+        # For large class counts (e.g. pooled task='0' with 351 prompts) when training with a
+        # learnable prefix on a 15GB GPU, chunking + gradient checkpointing keeps VRAM < 2 GB
+        # while producing identical gradients for `prefix`.
+        chunk_size = 64
+        if num_prompts <= chunk_size:
+            return _encode_chunk(text_tokens, eot_idx)
 
-        if text.text_projection is not None:
-            if isinstance(text.text_projection, nn.Linear):
-                pooled = text.text_projection(pooled)
+        from torch.utils.checkpoint import checkpoint
+        chunks = []
+        for start in range(0, num_prompts, chunk_size):
+            end = min(start + chunk_size, num_prompts)
+            tok_c = text_tokens[start:end]
+            eot_c = eot_idx[start:end]
+            if prefix.requires_grad and torch.is_grad_enabled():
+                chunks.append(checkpoint(_encode_chunk, tok_c, eot_c, use_reentrant=False))
             else:
-                pooled = pooled @ text.text_projection
-        return pooled
+                chunks.append(_encode_chunk(tok_c, eot_c))
+        return torch.cat(chunks, dim=0)
 
 
 class ActionSimilarityComputer:

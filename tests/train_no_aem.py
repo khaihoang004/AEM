@@ -28,6 +28,7 @@ import time
 
 # Skip loading VLM detections, Effect Frames, and Scene Graphs in CaptainCook4DDataset
 os.environ["CCP4D_SKIP_VLM"] = "1"
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import numpy as np
 import torch
@@ -366,6 +367,10 @@ def train_single_task(
             f"  => [Paper Full-AEM]  Acc: {pw['Accuracy']:5.2f}% | Edit: {pw['Edit']:5.2f}% | F1@50: {pw['F1@50']:5.2f}% | "
             f"Frag: {pw['frag_ratio']:4.2f}x || Prec: {ped['precision']:5.2f}% | AUC: {ped['auc']:5.2f}% | EDA: {ped['eda']:5.2f}%"
         )
+        del paper_model
+
+    del model, model_ema, optimizer, scheduler
+    torch.cuda.empty_cache()
 
     return {
         "task_id": str(task_id),
