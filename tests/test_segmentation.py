@@ -30,14 +30,46 @@ if REPO_ROOT not in sys.path:
 
 from libs.core import load_config
 from libs.datasets import make_dataset, make_data_loader
+from libs.datasets.clip_encode import action_tokenize_egoper
+from libs.datasets.clip_encode_ccp4d import action_tokenize_ccp4d
 from libs.modeling import make_meta_arch
 from libs.utils import fix_random_seed
-from metric import framewise_to_segments
+from metric import calculate_micro_auc, evaluate_ed, framewise_to_segments
 
 warnings.filterwarnings("ignore")
 
 DEFAULT_SPLIT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "person_data_split_combined.json")
 F1_THRESHOLDS = (0.10, 0.25, 0.50, 0.75)
+ED_THRESHOLDS = np.arange(0.0, 1.0, 0.025)
+
+
+def load_clip_model(device="cuda"):
+    """Load the frozen EVA-02 CLIP used for prompt / mistake-detection scoring."""
+    import open_clip
+
+    clip, _, preprocess = open_clip.create_model_and_transforms(
+        model_name="EVA02-L-14-336",
+        pretrained="merged2b_s6b_b61k",
+        device=device,
+    )
+    tokenizer = open_clip.get_tokenizer("EVA02-L-14-336")
+    return (clip.eval().requires_grad_(False).to(device), tokenizer, preprocess)
+
+
+def compute_ed_metrics(results):
+    """Compute Mistake Detection metrics (EDA, Precision, Micro AUC) across the 40 thresholds."""
+    eda_list, precision_list, micro_fprs, micro_tprs = [], [], [], []
+    for threshold in ED_THRESHOLDS:
+        outputs = evaluate_ed(results, threshold=float(threshold))
+        eda_list.append(outputs["error_acc"])
+        precision_list.append(outputs["micro"]["precision"])
+        micro_fprs.append(outputs["micro"]["fpr"])
+        micro_tprs.append(outputs["micro"]["tpr"])
+    return {
+        "eda": float(np.mean(eda_list)) * 100.0,
+        "precision": float(np.mean(precision_list)) * 100.0,
+        "auc": float(calculate_micro_auc(micro_fprs, micro_tprs)) * 100.0,
+    }
 
 
 def compute_extended_seg_metrics(list_of_y_true, list_of_y_pred, ignore_bg=False, bg_class=0):
@@ -371,6 +403,23 @@ def run_segmentation_only(model, test_loader):
     return results
 
 
+@torch.no_grad()
+def run_full_inference(model, test_loader, clip_model, action_tokens):
+    """Run full AEM inference (Segmentation + Effect_Model + Action_Model) for AUC/EDA/Precision."""
+    model.eval()
+    pt_model = model.module if isinstance(model, nn.DataParallel) else model
+    results = {}
+    for video_list in test_loader:
+        results.update(
+            pt_model.inference(
+                video_list=video_list,
+                clip_model=clip_model,
+                action_tokens=action_tokens,
+            )
+        )
+    return results
+
+
 def print_video_segments(results, id2name, fps=10.0, max_videos=5):
     """Print detailed predicted vs. ground-truth segments for up to `max_videos` test videos."""
     shown = 0
@@ -606,6 +655,8 @@ def render_segmentation_video(
 def evaluate_task(
     cfg,
     ckpt_file,
+    clip_model=None,
+    eval_ed=True,
     use_gcn=False,
     use_ema=False,
     show_videos=0,
@@ -617,15 +668,15 @@ def evaluate_task(
     max_export_videos=2,
     out_fps=5.0,
 ):
-    """Evaluate segmentation branch on one task/recipe without loading OpenCLIP."""
+    """Evaluate segmentation AND mistake detection (Precision/AUC/EDA) on one task/recipe."""
     _ = fix_random_seed(0, include_cuda=True)
-    _resolve_root_dir(cfg)
+    root_dir = _resolve_root_dir(cfg)
 
     task = str(cfg["dataset"]["task"])
     if split_file and cfg["dataset_name"] == "CaptainCook4D":
         allowed_vids = load_split_video_ids(split_file, subset=split_subset, task=task)
         test_dataset = CombinedCaptainCook4DDataset(
-            root_dir=cfg["dataset"]["root_dir"],
+            root_dir=root_dir,
             task=task,
             features_subdir=cfg["dataset"].get("features_subdir", "I3D"),
             default_fps=cfg["dataset"].get("default_fps", 10),
@@ -651,7 +702,29 @@ def evaluate_task(
         return None
 
     id2name = build_action_name_map(cfg)
-    if cfg["dataset_name"] == "CaptainCook4D":
+    action_tokens = None
+    if eval_ed:
+        if clip_model is None:
+            clip_model = load_clip_model(cfg["devices"][0])
+        else:
+            clip_model = (clip_model[0].to(cfg["devices"][0]), clip_model[1], clip_model[2])
+
+        if cfg["dataset_name"] == "CaptainCook4D":
+            with open(os.path.join(root_dir, "activity_step_collection.json"), "r") as fp:
+                activity_step_collection = json.load(fp)
+            with open(os.path.join(root_dir, "step_id_mapping.json"), "r") as fp:
+                step_id_mapping = json.load(fp)
+            action_tokens, num_classes = action_tokenize_ccp4d(
+                clip_model, task, activity_step_collection, step_id_mapping, device=cfg["devices"][0]
+            )
+            cfg["model"]["num_classes"] = num_classes
+        else:
+            with open(os.path.join(root_dir, "annotation.json"), "r") as fp:
+                all_annot = json.load(fp)
+            action_tokens = action_tokenize_egoper(
+                clip_model, task, annot=all_annot[task], device=cfg["devices"][0]
+            )
+    elif cfg["dataset_name"] == "CaptainCook4D":
         cfg["model"]["num_classes"] = len(id2name)
 
     cfg["model"]["backbone_type"] = "convGCNTransformer" if use_gcn else "convTransformer"
@@ -660,9 +733,12 @@ def evaluate_task(
     model = load_weights(model, ckpt_file, use_ema=use_ema)
 
     split_desc = f"split={os.path.basename(split_file)}[{split_subset}]" if split_file else f"split={cfg['test_split']}"
-    print(f"\nStart testing Action Segmentation ({cfg['dataset_name']} - task {task}, {split_desc}) ...")
+    print(f"\nStart testing ({cfg['dataset_name']} - task {task}, {split_desc}) ...")
     start = time.time()
-    results = run_segmentation_only(model, test_loader)
+    if eval_ed:
+        results = run_full_inference(model, test_loader, clip_model, action_tokens)
+    else:
+        results = run_segmentation_only(model, test_loader)
     elapsed = time.time() - start
 
     list_of_gt_frame_action = []
@@ -673,6 +749,7 @@ def evaluate_task(
 
     seg_with_bg = compute_extended_seg_metrics(list_of_gt_frame_action, list_of_pred_frame_action, ignore_bg=False)
     seg_no_bg = compute_extended_seg_metrics(list_of_gt_frame_action, list_of_pred_frame_action, ignore_bg=True)
+    ed_metrics = compute_ed_metrics(results) if eval_ed else {"precision": 0.0, "auc": 0.0, "eda": 0.0}
 
     print(
         "  [With BG]    Acc: {:5.2f}% | mIoU: {:5.2f}% | Edit: {:5.2f}% | "
@@ -708,9 +785,16 @@ def evaluate_task(
             seg_no_bg["frag_ratio"],
         )
     )
+    if eval_ed:
+        print(
+            "  [Mistake ED] Precision: {:5.2f}% | Micro AUC: {:5.2f}% | EDA: {:5.2f}%".format(
+                ed_metrics["precision"], ed_metrics["auc"], ed_metrics["eda"]
+            )
+        )
 
     seg_outputs = dict(seg_with_bg)
     seg_outputs["no_bg"] = seg_no_bg
+    seg_outputs.update(ed_metrics)
 
     fps = cfg["dataset"].get("default_fps", 10.0)
     if show_videos > 0:
@@ -761,6 +845,7 @@ def evaluate_task(
 def evaluate_all_ccp4d(
     config_path,
     ckpt_dir,
+    eval_ed=True,
     use_ema=False,
     split_file=None,
     split_subset="test",
@@ -775,6 +860,8 @@ def evaluate_all_ccp4d(
     with open(os.path.join(root_dir, "id_activity_mapping.json"), "r") as fp:
         id_activity = json.load(fp)
 
+    clip_model = load_clip_model(cfg_base["devices"][0]) if eval_ed else None
+
     all_metrics = []
     print(f"Scanning CaptainCook4D checkpoints in: {ckpt_dir}")
     for task_id, activity_name in id_activity.items():
@@ -788,6 +875,8 @@ def evaluate_all_ccp4d(
         out = evaluate_task(
             cfg,
             matches[0],
+            clip_model=clip_model,
+            eval_ed=eval_ed,
             use_gcn=False,
             use_ema=use_ema,
             split_file=split_file,
@@ -803,26 +892,29 @@ def evaluate_all_ccp4d(
             all_metrics.append(out)
 
     if all_metrics:
-        def _print_summary_table(title, items):
-            print("\n" + "=" * 112)
+        def _print_summary_table(title, items, show_ed=False):
+            width = 136 if show_ed else 112
+            print("\n" + "=" * width)
             print(f" {title}")
-            print("=" * 112)
+            print("=" * width)
+            ed_hdr = f" {'Prec':>6} {'AUC':>6} {'EDA':>6}" if show_ed else ""
             header = (
                 f"{'Task':<5} {'Recipe':<31} {'Acc':>6} {'mIoU':>6} {'Edit':>6} "
                 f"{'F1@10':>6} {'F1@25':>6} {'F1@50':>6} {'F1@75':>6} "
-                f"{'#Pred/#GT':>11} {'Frag':>6}"
+                f"{'#Pred/#GT':>11} {'Frag':>6}{ed_hdr}"
             )
             print(header)
-            print("-" * 112)
+            print("-" * width)
             for tid, rname, m in items:
                 seg_str = f"{m['pred_segs']}/{m['gt_segs']}"
+                ed_row = f" {m['precision']:6.2f} {m['auc']:6.2f} {m['eda']:6.2f}" if show_ed else ""
                 print(
                     f"{tid:<5} {rname[:31]:<31} "
                     f"{m['Accuracy']:6.2f} {m['mIoU']:6.2f} {m['Edit']:6.2f} "
                     f"{m['F1@10']:6.2f} {m['F1@25']:6.2f} {m['F1@50']:6.2f} {m['F1@75']:6.2f} "
-                    f"{seg_str:>11} {m['frag_ratio']:5.2f}x"
+                    f"{seg_str:>11} {m['frag_ratio']:5.2f}x{ed_row}"
                 )
-            print("-" * 112)
+            print("-" * width)
             mean_acc = np.mean([m["Accuracy"] for _, _, m in items])
             mean_iou = np.mean([m["mIoU"] for _, _, m in items])
             mean_edit = np.mean([m["Edit"] for _, _, m in items])
@@ -834,23 +926,41 @@ def evaluate_all_ccp4d(
             tot_gt = sum(m["gt_segs"] for _, _, m in items)
             tot_frag = (tot_pred / tot_gt) if tot_gt > 0 else 0.0
             tot_seg_str = f"{tot_pred}/{tot_gt}"
+            if show_ed:
+                mean_prec = np.mean([m["precision"] for _, _, m in items])
+                mean_auc = np.mean([m["auc"] for _, _, m in items])
+                mean_eda = np.mean([m["eda"] for _, _, m in items])
+                ed_avg = f" {mean_prec:6.2f} {mean_auc:6.2f} {mean_eda:6.2f}"
+            else:
+                ed_avg = ""
             print(
                 f"{'AVG':<5} {'(' + str(len(items)) + ' recipes)':<31} "
                 f"{mean_acc:6.2f} {mean_iou:6.2f} {mean_edit:6.2f} "
                 f"{mean_f1_10:6.2f} {mean_f1_25:6.2f} {mean_f1_50:6.2f} {mean_f1_75:6.2f} "
-                f"{tot_seg_str:>11} {tot_frag:5.2f}x"
+                f"{tot_seg_str:>11} {tot_frag:5.2f}x{ed_avg}"
             )
-            print("=" * 112)
+            if show_ed:
+                print(
+                    f"{'PAPER':<5} {'(Table 2 - CaptainCook4D)':<31} "
+                    f"{'--':>6} {'--':>6} {'--':>6} "
+                    f"{'--':>6} {'--':>6} {'--':>6} {'--':>6} "
+                    f"{'--':>11} {'--':>6} {68.10:6.2f} {62.50:6.2f} {71.90:6.2f}"
+                )
+            print("=" * width)
 
         with_bg_items = [(m["task_id"], m["activity"], m) for m in all_metrics]
         no_bg_items = [(m["task_id"], m["activity"], m["no_bg"]) for m in all_metrics]
-        _print_summary_table("SUMMARY TABLE 1: WITH BACKGROUND (Class 0 Included)", with_bg_items)
-        _print_summary_table("SUMMARY TABLE 2: WITHOUT BACKGROUND (Action Steps Only, Class > 0)", no_bg_items)
+        _print_summary_table(
+            "SUMMARY TABLE 1: WITH BACKGROUND (Class 0 Included) + MISTAKE DETECTION (Prec / AUC / EDA)",
+            with_bg_items,
+            show_ed=eval_ed,
+        )
+        _print_summary_table("SUMMARY TABLE 2: WITHOUT BACKGROUND (Action Steps Only, Class > 0)", no_bg_items, show_ed=False)
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Test ONLY the Action Segmentation branch (supports person_data_split_combined.json & MP4 export)."
+        description="Test Action Segmentation AND Mistake Detection (Precision/AUC/EDA), with MP4 export."
     )
     parser.add_argument("config", type=str, help="path to config file (e.g. configs/ccp4d.yaml)")
     parser.add_argument(
@@ -863,6 +973,11 @@ def main():
         "--all_recipes",
         action="store_true",
         help="evaluate all 24 CaptainCook4D recipes found in the ckpt folder",
+    )
+    parser.add_argument(
+        "--seg_only",
+        action="store_true",
+        help="skip OpenCLIP and evaluate only Action Segmentation (faster)",
     )
     parser.add_argument(
         "--split_file",
@@ -926,11 +1041,13 @@ def main():
         raise ValueError(f"Config file does not exist: {args.config}")
 
     split_file = None if (args.split_file and args.split_file.lower() == "none") else args.split_file
+    eval_ed = not args.seg_only
 
     if args.all_recipes:
         evaluate_all_ccp4d(
             args.config,
             args.ckpt,
+            eval_ed=eval_ed,
             use_ema=args.use_ema,
             split_file=split_file,
             split_subset=args.split_subset,
@@ -948,9 +1065,12 @@ def main():
         cfg["model"]["test_cfg"]["max_seg_num"] = args.topk
 
     ckpt_file = resolve_ckpt_file(args.ckpt, args.epoch, args.is_best)
+    clip_model = load_clip_model(cfg["devices"][0]) if eval_ed else None
     evaluate_task(
         cfg,
         ckpt_file,
+        clip_model=clip_model,
+        eval_ed=eval_ed,
         use_gcn=args.use_gcn,
         use_ema=args.use_ema,
         show_videos=args.show_videos,
