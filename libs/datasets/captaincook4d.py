@@ -89,6 +89,7 @@ class CaptainCook4DDataset(Dataset):
                 os.path.join(self.data_root, 'scene_graph_npy', 'scene_graph.npy'), allow_pickle=True
             ).item()
 
+        self.feat_cache = {}
         self.annots = []
         for video_id, video_data in self.annotation_data.items():
             # For the pooled pseudo-task '0', ids are '<recipe>_<video>'; strip the prefix.
@@ -129,16 +130,19 @@ class CaptainCook4DDataset(Dataset):
 
     def __getitem__(self, idx):
         annot = self.annots[idx]
-        feats = np.load(annot['feat_path'])  # (T, 2048)
+        feat_path = annot['feat_path']
+        if feat_path not in self.feat_cache:
+            self.feat_cache[feat_path] = torch.from_numpy(np.load(feat_path)).transpose(0, 1).float()
+        feats_t = self.feat_cache[feat_path]
 
         data_dict = {
             'video_id': annot['video_id'],
-            'feats': torch.from_numpy(feats).transpose(0, 1).float(),
+            'feats': feats_t.clone() if self.is_training else feats_t,
             'segments': torch.tensor(annot['segments']).float(),
             'labels': torch.tensor(annot['labels']).long(),
             'labels_error': torch.tensor(annot['labels_error']).long(),
             'fps': self.default_fps,
-            'duration': len(feats) / self.default_fps,
+            'duration': feats_t.shape[1] / self.default_fps,
             'visual_info': copy.deepcopy(annot['visual_info']) if annot['visual_info'] else None,
             'scene_graph': copy.deepcopy(annot['scene_graph']) if annot['scene_graph'] else None,
         }

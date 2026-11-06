@@ -200,6 +200,19 @@ def train_single_task(
         print(f"  [Skip] Task {task_id} ({recipe_name}): 0 training videos.")
         return None
 
+    # Pre-cache all video feature tensors in RAM once so Google Drive isn't queried every epoch
+    t_cache = time.time()
+    for idx, annot in enumerate(train_dataset.annots):
+        fp = annot["feat_path"]
+        if fp not in train_dataset.feat_cache:
+            train_dataset.feat_cache[fp] = torch.from_numpy(np.load(fp)).transpose(0, 1).float()
+        if (idx + 1) % 25 == 0 or (idx + 1) == len(train_dataset.annots):
+            print(
+                f"  [RAM Cache] Loaded {idx+1}/{len(train_dataset.annots)} train videos "
+                f"({time.time() - t_cache:.1f}s)",
+                flush=True,
+            )
+
     train_loader = make_data_loader(train_dataset, True, rng_generator, **cfg["loader"])
     test_dataset, test_loader = build_split_test_loader(cfg, task_id, split_file, args.split_subset)
     if len(test_dataset) == 0:
@@ -292,10 +305,12 @@ def train_single_task(
     print("-" * 115)
 
     t0 = time.time()
+    num_batches = len(train_loader)
     for epoch in range(max_epochs):
+        ep_t0 = time.time()
         model.train()
         ep_losses = {"final": [], "cls": [], "reg": [], "det_ce": [], "det_focal": []}
-        for video_list in train_loader:
+        for b_idx, video_list in enumerate(train_loader):
             optimizer.zero_grad(set_to_none=True)
             losses, _ = model(
                 clip_model=clip_model,
@@ -319,14 +334,32 @@ def train_single_task(
             if "det_focal_loss" in losses:
                 ep_losses["det_focal"].append(float(losses["det_focal_loss"].item()))
 
+            # Intra-epoch progress log for large pooled tasks (or when --batch_print_freq > 0)
+            if args.batch_print_freq > 0 and (
+                (b_idx + 1) % args.batch_print_freq == 0 or (b_idx + 1) == num_batches
+            ):
+                vram_gb = torch.cuda.memory_allocated() / (1024 ** 3) if torch.cuda.is_available() else 0.0
+                print(
+                    f"    [Ep {epoch+1:3d}/{max_epochs:3d} | Batch {b_idx+1:3d}/{num_batches:3d}] "
+                    f"loss: {ep_losses['final'][-1]:.3f} (avg: {np.mean(ep_losses['final']):.3f}) | "
+                    f"VRAM: {vram_gb:.2f}GB | {time.time() - ep_t0:.1f}s",
+                    flush=True,
+                )
+
         if (epoch + 1) % args.print_freq == 0 or (epoch + 1) == max_epochs or epoch == 0:
             lr_now = scheduler.get_last_lr()[0]
+            ep_sec = time.time() - ep_t0
+            total_sec = time.time() - t0
+            eta_sec = (total_sec / (epoch + 1)) * (max_epochs - (epoch + 1))
+            vram_gb = torch.cuda.max_memory_allocated() / (1024 ** 3) if torch.cuda.is_available() else 0.0
             print(
                 f"  Epoch [{epoch+1:3d}/{max_epochs:3d}] | lr: {lr_now:.2e} | "
                 f"loss: {np.mean(ep_losses['final']):.3f} "
                 f"(cls: {np.mean(ep_losses['cls']):.3f}, reg: {np.mean(ep_losses['reg']):.3f}, "
                 f"det_ce: {np.mean(ep_losses['det_ce'] or [0]):.3f}, "
-                f"det_focal: {np.mean(ep_losses['det_focal'] or [0]):.3f})"
+                f"det_focal: {np.mean(ep_losses['det_focal'] or [0]):.3f}) | "
+                f"{ep_sec:.1f}s/ep (ETA: {eta_sec/60:.1f}m) | PeakVRAM: {vram_gb:.1f}GB",
+                flush=True,
             )
 
     train_time = time.time() - t0
@@ -419,8 +452,10 @@ def main():
                         help="Directory to save trained No-AEM checkpoints")
     parser.add_argument("--paper_ckpt_dir", type=str, default=os.path.join(REPO_ROOT, "checkpoints", "ccp4d"),
                         help="Directory containing the paper's released checkpoints for side-by-side comparison")
-    parser.add_argument("--print_freq", type=int, default=20,
-                        help="Print training loss every N epochs (default: 20)")
+    parser.add_argument("--print_freq", type=int, default=5,
+                        help="Print epoch summary every N epochs (default: 5)")
+    parser.add_argument("--batch_print_freq", type=int, default=15,
+                        help="Print intra-epoch progress every N batches (default: 15, set 0 to disable)")
     args = parser.parse_args()
 
     split_file = None if (args.split_file and args.split_file.lower() == "none") else args.split_file
