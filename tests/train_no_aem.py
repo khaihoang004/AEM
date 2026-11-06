@@ -204,7 +204,18 @@ def train_single_task(
 
     # Use num_workers=0 so DataLoader shares the in-process float16 RAM cache without forking 4x RAM
     cfg["loader"]["num_workers"] = 0
+    # Ensure batch_size does not exceed dataset size (drop_last=True would otherwise yield 0 batches!)
+    effective_bs = min(cfg["loader"]["batch_size"], len(train_dataset))
+    effective_bs = max(effective_bs, 1)
+    if effective_bs != cfg["loader"]["batch_size"]:
+        print(f"  [Notice] Task {task_id} has {len(train_dataset)} training videos; adjusting batch_size: {cfg['loader']['batch_size']} -> {effective_bs}")
+    cfg["loader"]["batch_size"] = effective_bs
     train_loader = make_data_loader(train_dataset, True, rng_generator, **cfg["loader"])
+    if len(train_loader) == 0:
+        # Fallback: force batch_size=1 so drop_last=True always yields at least len(train_dataset) batches
+        cfg["loader"]["batch_size"] = 1
+        train_loader = make_data_loader(train_dataset, True, rng_generator, **cfg["loader"])
+
     test_dataset, test_loader = build_split_test_loader(cfg, task_id, split_file, args.split_subset)
     if len(test_dataset) == 0:
         print(f"  [Skip] Task {task_id} ({recipe_name}): 0 test videos.")
@@ -375,10 +386,13 @@ def train_single_task(
             total_sec = time.time() - t0
             eta_sec = (total_sec / max(done_eps, 1)) * (max_epochs - (epoch + 1))
             vram_gb = torch.cuda.max_memory_allocated() / (1024 ** 3) if torch.cuda.is_available() else 0.0
+            loss_final_str = f"{np.mean(ep_losses['final']):.3f}" if ep_losses["final"] else "0.000"
+            loss_cls_str = f"{np.mean(ep_losses['cls']):.3f}" if ep_losses["cls"] else "0.000"
+            loss_reg_str = f"{np.mean(ep_losses['reg']):.3f}" if ep_losses["reg"] else "0.000"
             print(
                 f"  Epoch [{epoch+1:3d}/{max_epochs:3d}] | lr: {lr_now:.2e} | "
-                f"loss: {np.mean(ep_losses['final']):.3f} "
-                f"(cls: {np.mean(ep_losses['cls']):.3f}, reg: {np.mean(ep_losses['reg']):.3f}, "
+                f"loss: {loss_final_str} "
+                f"(cls: {loss_cls_str}, reg: {loss_reg_str}, "
                 f"det_ce: {np.mean(ep_losses['det_ce'] or [0]):.3f}, "
                 f"det_focal: {np.mean(ep_losses['det_focal'] or [0]):.3f}) | "
                 f"{ep_sec:.1f}s/ep (ETA: {eta_sec/60:.1f}m) | PeakVRAM: {vram_gb:.1f}GB",
