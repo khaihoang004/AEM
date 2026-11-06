@@ -225,11 +225,26 @@ def train_single_task(
     scheduler = make_scheduler(optimizer, cfg["opt"], len(train_loader))
     model_ema = ModelEma(model)
 
-    # 3b. Support --resume (exact `same_shape` logic from train.py) or --init_from_ckpt
+    # 3b. Support auto-resuming interrupted runs from output_dir, --resume, or --init_from_ckpt
+    max_epochs = cfg["opt"].get("early_stop_epochs", cfg["opt"]["epochs"] + cfg["opt"]["warmup_epochs"])
+    os.makedirs(args.output_dir, exist_ok=True)
+    safe_recipe = recipe_name.replace(" ", "")
+    ckpt_name = f"recipe_{task_id}_{safe_recipe}_no_aem.pth.tar"
+    saved_path = os.path.join(args.output_dir, ckpt_name)
+
+    start_epoch = 0
     resume_ckpt = None
-    if args.resume:
+    is_same_task_resume = False
+
+    # Priority 1: If output_dir already has a saved checkpoint for this exact task, auto-resume from it!
+    if os.path.isfile(saved_path) and not args.no_auto_resume:
+        resume_ckpt = saved_path
+        is_same_task_resume = True
+    elif args.resume:
         if os.path.isfile(args.resume):
             resume_ckpt = args.resume
+            if os.path.abspath(args.resume) == os.path.abspath(saved_path):
+                is_same_task_resume = True
         elif os.path.isdir(args.resume):
             pattern = os.path.join(args.resume, f"recipe_{task_id}_*.pth.tar")
             matches = sorted(glob.glob(pattern))
@@ -269,33 +284,47 @@ def train_single_task(
         model.load_state_dict(state, strict=False)
         ema_state = checkpoint.get("state_dict_ema", checkpoint["state_dict"])
         model_ema.module.load_state_dict(same_shape(ema_state, model_ema.module)[0], strict=False)
-        print(
-            f"  [Resume] Loaded {len(state)} tensors from '{resume_ckpt}'"
-            + (f" (epoch {checkpoint['epoch']})" if "epoch" in checkpoint else "")
-            + (f"; {len(skipped)} shape-mismatched tensors kept fresh init" if skipped else "")
-        )
+
+        # If resuming an interrupted run of the exact same task (no shape-mismatched head),
+        # also restore epoch, optimizer, and scheduler!
+        if (is_same_task_resume or (len(skipped) == 0 and checkpoint.get("task_id") == str(task_id))) and "epoch" in checkpoint:
+            start_epoch = int(checkpoint["epoch"])
+            if "optimizer" in checkpoint and start_epoch < max_epochs:
+                try:
+                    optimizer.load_state_dict(checkpoint["optimizer"])
+                except Exception:
+                    pass
+            if "scheduler" in checkpoint and start_epoch < max_epochs:
+                try:
+                    scheduler.load_state_dict(checkpoint["scheduler"])
+                except Exception:
+                    pass
+            print(
+                f"  [Auto-Resume] Restored Task {task_id} from '{resume_ckpt}' at Epoch {start_epoch}/{max_epochs}"
+            )
+        else:
+            print(
+                f"  [Warm-Start] Loaded {len(state)} tensors from '{resume_ckpt}'"
+                + (f" (epoch {checkpoint['epoch']})" if "epoch" in checkpoint else "")
+                + (f"; {len(skipped)} shape-mismatched tensors kept fresh init" if skipped else "")
+            )
         del checkpoint
 
     # Count trainable vs frozen parameters
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     total_params = sum(p.numel() for p in model.parameters())
 
-    max_epochs = cfg["opt"].get("early_stop_epochs", cfg["opt"]["epochs"] + cfg["opt"]["warmup_epochs"])
-    os.makedirs(args.output_dir, exist_ok=True)
-    safe_recipe = recipe_name.replace(" ", "")
-    ckpt_name = f"recipe_{task_id}_{safe_recipe}_no_aem.pth.tar"
-
     print("\n" + "-" * 115)
     print(
         f" Training Task {task_id:>2s}: {recipe_name} (No-AEM) | "
         f"Train vids: {len(train_dataset)} | Test vids: {len(test_dataset)} | "
-        f"Epochs: {max_epochs} | Trainable Params: {trainable_params/1e6:.2f}M / {total_params/1e6:.2f}M"
+        f"Epochs: {start_epoch}->{max_epochs} | Trainable Params: {trainable_params/1e6:.2f}M / {total_params/1e6:.2f}M"
     )
     print("-" * 115)
 
     t0 = time.time()
     num_batches = len(train_loader)
-    for epoch in range(max_epochs):
+    for epoch in range(start_epoch, max_epochs):
         ep_t0 = time.time()
         model.train()
         ep_losses = {"final": [], "cls": [], "reg": [], "det_ce": [], "det_focal": []}
@@ -335,11 +364,12 @@ def train_single_task(
                     flush=True,
                 )
 
-        if (epoch + 1) % args.print_freq == 0 or (epoch + 1) == max_epochs or epoch == 0:
+        if (epoch + 1) % args.print_freq == 0 or (epoch + 1) == max_epochs or epoch == start_epoch:
             lr_now = scheduler.get_last_lr()[0]
             ep_sec = time.time() - ep_t0
+            done_eps = (epoch + 1) - start_epoch
             total_sec = time.time() - t0
-            eta_sec = (total_sec / (epoch + 1)) * (max_epochs - (epoch + 1))
+            eta_sec = (total_sec / max(done_eps, 1)) * (max_epochs - (epoch + 1))
             vram_gb = torch.cuda.max_memory_allocated() / (1024 ** 3) if torch.cuda.is_available() else 0.0
             print(
                 f"  Epoch [{epoch+1:3d}/{max_epochs:3d}] | lr: {lr_now:.2e} | "
@@ -351,18 +381,22 @@ def train_single_task(
                 flush=True,
             )
 
-    train_time = time.time() - t0
+        # Periodically save checkpoint every --ckpt_freq epochs so Colab disconnects lose nothing
+        if (args.ckpt_freq > 0 and (epoch + 1) % args.ckpt_freq == 0) or (epoch + 1) == max_epochs:
+            eval_model = model_ema.module if args.eval_ema else model
+            save_state = {
+                "task_id": str(task_id),
+                "epoch": epoch + 1,
+                "state_dict": eval_model.state_dict(),
+                "state_dict_ema": model_ema.module.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "scheduler": scheduler.state_dict(),
+            }
+            save_checkpoint(save_state, False, file_folder=args.output_dir, file_name=ckpt_name)
 
-    # Save trained No-AEM checkpoint (both standard state_dict and EMA)
+    train_time = time.time() - t0
     eval_model = model_ema.module if args.eval_ema else model
     configure_no_aem_model(eval_model, keep_effect_transformer=args.keep_effect_transformer)
-    save_state = {
-        "epoch": max_epochs,
-        "state_dict": eval_model.state_dict(),
-        "state_dict_ema": model_ema.module.state_dict(),
-    }
-    save_checkpoint(save_state, False, file_folder=args.output_dir, file_name=ckpt_name)
-    saved_path = os.path.join(args.output_dir, ckpt_name)
 
     # 4. Evaluate our newly trained No-AEM model
     our_metrics = evaluate_model_on_loader(eval_model, test_loader, clip_model, action_tokens)
@@ -445,6 +479,10 @@ def main():
                         help="Print epoch summary every N epochs (default: 5)")
     parser.add_argument("--batch_print_freq", type=int, default=15,
                         help="Print intra-epoch progress every N batches (default: 15, set 0 to disable)")
+    parser.add_argument("--ckpt_freq", type=int, default=5,
+                        help="Save checkpoint to --output_dir every N epochs for seamless auto-resume (default: 5)")
+    parser.add_argument("--no_auto_resume", action="store_true",
+                        help="Start from scratch even if a checkpoint already exists in --output_dir")
     args = parser.parse_args()
 
     split_file = None if (args.split_file and args.split_file.lower() == "none") else args.split_file
