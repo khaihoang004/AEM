@@ -31,7 +31,10 @@ import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
 
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TESTS_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(TESTS_DIR)
+if TESTS_DIR not in sys.path:
+    sys.path.insert(0, TESTS_DIR)
 if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 UTILS_DIR = os.path.join(REPO_ROOT, "libs", "utils")
@@ -43,7 +46,7 @@ from libs.datasets import make_dataset, make_data_loader, to_frame_wise, to_segm
 from libs.modeling import make_meta_arch
 from libs.modeling.action_model import PrefixPromptTextEncoder
 
-from tests.test_segmentation import (
+from test_segmentation import (
     CCP4D_RECIPES,
     CombinedCaptainCook4DDataset,
     _resolve_root_dir,
