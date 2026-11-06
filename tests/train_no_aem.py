@@ -200,19 +200,8 @@ def train_single_task(
         print(f"  [Skip] Task {task_id} ({recipe_name}): 0 training videos.")
         return None
 
-    # Pre-cache all video feature tensors in RAM once so Google Drive isn't queried every epoch
-    t_cache = time.time()
-    for idx, annot in enumerate(train_dataset.annots):
-        fp = annot["feat_path"]
-        if fp not in train_dataset.feat_cache:
-            train_dataset.feat_cache[fp] = torch.from_numpy(np.load(fp)).transpose(0, 1).float()
-        if (idx + 1) % 25 == 0 or (idx + 1) == len(train_dataset.annots):
-            print(
-                f"  [RAM Cache] Loaded {idx+1}/{len(train_dataset.annots)} train videos "
-                f"({time.time() - t_cache:.1f}s)",
-                flush=True,
-            )
-
+    # Use num_workers=0 so DataLoader shares the in-process float16 RAM cache without forking 4x RAM
+    cfg["loader"]["num_workers"] = 0
     train_loader = make_data_loader(train_dataset, True, rng_generator, **cfg["loader"])
     test_dataset, test_loader = build_split_test_loader(cfg, task_id, split_file, args.split_subset)
     if len(test_dataset) == 0:

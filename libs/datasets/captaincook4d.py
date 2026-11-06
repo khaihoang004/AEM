@@ -131,13 +131,19 @@ class CaptainCook4DDataset(Dataset):
     def __getitem__(self, idx):
         annot = self.annots[idx]
         feat_path = annot['feat_path']
-        if feat_path not in self.feat_cache:
-            self.feat_cache[feat_path] = torch.from_numpy(np.load(feat_path)).transpose(0, 1).float()
-        feats_t = self.feat_cache[feat_path]
+        if feat_path in self.feat_cache:
+            feats_np = self.feat_cache[feat_path]
+        else:
+            # Store compact float16 in RAM (~3.5MB/video instead of 35MB) or read via mmap
+            feats_np = np.load(feat_path, mmap_mode='r')
+            if len(self.feat_cache) < 200:
+                self.feat_cache[feat_path] = np.asarray(feats_np, dtype=np.float16)
+                feats_np = self.feat_cache[feat_path]
+        feats_t = torch.from_numpy(np.asarray(feats_np, dtype=np.float32)).transpose(0, 1)
 
         data_dict = {
             'video_id': annot['video_id'],
-            'feats': feats_t.clone() if self.is_training else feats_t,
+            'feats': feats_t,
             'segments': torch.tensor(annot['segments']).float(),
             'labels': torch.tensor(annot['labels']).long(),
             'labels_error': torch.tensor(annot['labels_error']).long(),
