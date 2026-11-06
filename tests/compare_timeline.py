@@ -53,6 +53,8 @@ from test_segmentation import (
     run_segmentation_only,
 )
 
+from train_no_aem import configure_no_aem_model
+
 try:
     import matplotlib
     matplotlib.use("Agg")
@@ -449,10 +451,21 @@ def evaluate_and_compare_task(
     split_file,
 ):
     """Run evaluation and timeline generation for one recipe comparing Our No-AEM vs. Paper Full-AEM."""
+    if not os.path.exists(args.config):
+        for candidate in [
+            os.path.join(REPO_ROOT, "configs", "ccp4d.yaml"),
+            os.path.join(REPO_ROOT, "configs", os.path.basename(args.config)),
+            "configs/ccp4d.yaml",
+        ]:
+            if os.path.exists(candidate):
+                args.config = candidate
+                break
+
     cfg = load_config(args.config)
     cfg["dataset"]["task"] = str(task_id)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    cfg["devices"] = [device]
     root_dir = _resolve_root_dir(cfg)
-    device = cfg["devices"][0] if torch.cuda.is_available() else "cpu"
     fps = cfg["dataset"].get("default_fps", 10.0)
 
     # 1. Prepare Test Dataset
@@ -516,6 +529,7 @@ def evaluate_and_compare_task(
             model_our = nn.DataParallel(model_our, device_ids=cfg["devices"])
         model_our = model_our.to(device)
         model_our = load_weights(model_our, our_ckpt, use_ema=False)
+        model_our = configure_no_aem_model(model_our)
 
         t0 = time.time()
         if args.eval_ed:
@@ -651,8 +665,8 @@ def parse_args():
     parser.add_argument("--paper_ckpt_dir", type=str,
                         default=os.path.join(REPO_ROOT, "checkpoints", "ccp4d"),
                         help="Directory containing author released checkpoints")
-    parser.add_argument("--config", type=str, default="configs/aem_c4d.yaml",
-                        help="Base ActionFormer configuration file")
+    parser.add_argument("--config", type=str, default=os.path.join(REPO_ROOT, "configs", "ccp4d.yaml"),
+                        help="Base ActionFormer configuration file (default: configs/ccp4d.yaml)")
     parser.add_argument("--split_file", type=str, default=DEFAULT_SPLIT_FILE,
                         help="Path to CaptainCook4D split file")
     parser.add_argument("--split_subset", type=str, default="test", choices=["train", "val", "test"],
@@ -682,9 +696,20 @@ def main():
     args = parse_args()
     _ = fix_random_seed(0, include_cuda=True)
 
+    if not os.path.exists(args.config):
+        for candidate in [
+            os.path.join(REPO_ROOT, "configs", "ccp4d.yaml"),
+            os.path.join(REPO_ROOT, "configs", os.path.basename(args.config)),
+            "configs/ccp4d.yaml",
+        ]:
+            if os.path.exists(candidate):
+                args.config = candidate
+                break
+
     cfg = load_config(args.config)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    cfg["devices"] = [device]
     root_dir = _resolve_root_dir(cfg)
-    device = cfg["devices"][0] if torch.cuda.is_available() else "cpu"
 
     # Load CaptainCook4D task mappings
     id_activity_file = os.path.join(root_dir, "id_activity_mapping.json")
