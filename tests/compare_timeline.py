@@ -490,11 +490,15 @@ def evaluate_and_compare_task(
     )
 
     # 2. Tokenize Actions & Build Name Map
-    action_tokens, num_classes = action_tokenize_ccp4d(
-        clip_model, str(task_id), activity_step_collection, step_id_mapping, device=device
-    )
-    cfg["model"]["num_classes"] = num_classes
     id2name = build_action_name_map(cfg)
+    action_tokens = None
+    if args.eval_ed and clip_model is not None:
+        action_tokens, num_classes = action_tokenize_ccp4d(
+            clip_model, str(task_id), activity_step_collection, step_id_mapping, device=device
+        )
+        cfg["model"]["num_classes"] = num_classes
+    else:
+        cfg["model"]["num_classes"] = len(id2name)
 
     # 3. Locate Trained No-AEM Checkpoint
     our_ckpt = args.our_ckpt
@@ -532,7 +536,7 @@ def evaluate_and_compare_task(
         model_our = configure_no_aem_model(model_our)
 
         t0 = time.time()
-        if args.eval_ed:
+        if args.eval_ed and clip_model is not None:
             our_results = run_full_inference(model_our, test_loader, clip_model, action_tokens)
             our_ed = compute_ed_metrics(our_results)
         else:
@@ -556,7 +560,7 @@ def evaluate_and_compare_task(
         model_pap = load_weights(model_pap, paper_ckpt, use_ema=False)
 
         t0 = time.time()
-        if args.eval_ed:
+        if args.eval_ed and clip_model is not None:
             paper_results = run_full_inference(model_pap, test_loader, clip_model, action_tokens)
             paper_ed = compute_ed_metrics(paper_results)
         else:
