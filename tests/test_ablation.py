@@ -22,9 +22,10 @@ prints a unified comparison table with deltas (Δ) relative to the Full AEM mode
 """
 
 import argparse
+import glob
+import json
 import os
 import sys
-import time
 from contextlib import contextmanager
 
 import numpy as np
@@ -42,20 +43,19 @@ if UTILS_DIR not in sys.path:
     sys.path.insert(0, UTILS_DIR)
 
 from libs.core import load_config
-from libs.datasets import make_dataset, make_data_loader, to_frame_wise, to_segments
+from libs.datasets import make_dataset, make_data_loader
+from libs.datasets.clip_encode_ccp4d import action_tokenize_ccp4d
 from libs.modeling import make_meta_arch
-from libs.modeling.action_model import PrefixPromptTextEncoder
+from libs.utils import fix_random_seed
 
 from test_segmentation import (
-    CCP4D_RECIPES,
     CombinedCaptainCook4DDataset,
     _resolve_root_dir,
-    build_action_tokens,
     compute_ed_metrics,
-    compute_extended_metrics,
-    find_ccp4d_checkpoints,
-    load_checkpoint_weights,
+    compute_extended_seg_metrics,
     load_clip_model,
+    load_split_video_ids,
+    load_weights,
 )
 
 
@@ -170,8 +170,8 @@ def ablate_model_context(model, mode: str):
 @torch.no_grad()
 def run_ablation_mode(model, test_loader, clip_model, action_tokens, mode: str):
     """Run inference on `test_loader` under the specified ablation `mode`."""
-    all_preds, all_gts = [], []
-    all_pred_segs, all_gt_segs = [], []
+    all_gt_frames = []
+    all_pred_frames = []
     ed_results = {}
 
     with ablate_model_context(model, mode):
@@ -211,30 +211,17 @@ def run_ablation_mode(model, test_loader, clip_model, action_tokens, mode: str):
                 results = model.inference(video_list, clip_model, action_tokens)
 
             for vid, res in results.items():
-                pred_f = res["frame_action_pred"].cpu().numpy()
-                gt_f = res["frame_action_label"].cpu().numpy()
-                min_len = min(len(pred_f), len(gt_f))
-                pred_f = pred_f[:min_len]
-                gt_f = gt_f[:min_len]
-
-                all_preds.append(pred_f)
-                all_gts.append(gt_f)
-                all_pred_segs.append(to_segments(pred_f))
-                all_gt_segs.append(to_segments(gt_f))
+                all_gt_frames.append(res["frame_action_label"].clone().cpu().numpy())
+                all_pred_frames.append(res["frame_action_pred"].clone().cpu().numpy())
                 ed_results[vid] = res
 
-    metrics_with_bg = compute_extended_metrics(
-        all_preds, all_gts, all_pred_segs, all_gt_segs, ignore_bg=False
-    )
-    metrics_no_bg = compute_extended_metrics(
-        all_preds, all_gts, all_pred_segs, all_gt_segs, ignore_bg=True
-    )
+    metrics_with_bg = compute_extended_seg_metrics(all_gt_frames, all_pred_frames, ignore_bg=False)
+    metrics_no_bg = compute_extended_seg_metrics(all_gt_frames, all_pred_frames, ignore_bg=True)
     ed_metrics = compute_ed_metrics(ed_results)
     return {
         "with_bg": metrics_with_bg,
         "without_bg": metrics_no_bg,
         "ed_metrics": ed_metrics,
-        "ed_raw": ed_results,
     }
 
 
@@ -260,97 +247,123 @@ def main():
     parser.add_argument("--tasks", type=str, default="all",
                         help="Comma-separated task IDs (e.g. '1,10,12') or 'all' for all available recipes")
     parser.add_argument("--split_file", type=str,
-                        default=os.path.join(REPO_ROOT, "tests", "person_data_split_combined.json"),
+                        default=os.path.join(TESTS_DIR, "person_data_split_combined.json"),
                         help="Path to split JSON, or 'none' for paper's original error-only test set")
-    parser.add_argument("--split_subset", type=str, default="test", choices=["val", "test", "train"])
-    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--split_subset", type=str, default="test")
+    parser.add_argument("--use_ema", action="store_true")
     args = parser.parse_args()
 
+    _ = fix_random_seed(0, include_cuda=True)
     split_file = None if (args.split_file and args.split_file.lower() == "none") else args.split_file
-    device = torch.device(args.device)
 
-    ckpts = find_ccp4d_checkpoints(args.ckpt_dir)
-    if not ckpts:
-        raise FileNotFoundError(f"No checkpoints found in: {args.ckpt_dir}")
+    cfg_base = load_config(args.config)
+    root_dir = _resolve_root_dir(cfg_base)
+    device = cfg_base["devices"][0]
 
+    with open(os.path.join(root_dir, "id_activity_mapping.json"), "r") as fp:
+        id_activity = json.load(fp)
+    with open(os.path.join(root_dir, "activity_step_collection.json"), "r") as fp:
+        activity_step_collection = json.load(fp)
+    with open(os.path.join(root_dir, "step_id_mapping.json"), "r") as fp:
+        step_id_mapping = json.load(fp)
+
+    wanted_tasks = None
     if args.tasks.lower() != "all":
-        wanted = {t.strip() for t in args.tasks.split(",") if t.strip()}
-        ckpts = {k: v for k, v in ckpts.items() if k in wanted}
-        if not ckpts:
-            raise ValueError(f"None of the requested --tasks ({args.tasks}) matched checkpoints in {args.ckpt_dir}")
+        wanted_tasks = {t.strip() for t in args.tasks.split(",") if t.strip()}
 
-    print("=" * 120)
-    print(f" AEM COMPONENT ABLATION STUDY | Tasks: {len(ckpts)} | Split: {os.path.basename(split_file) if split_file else 'original'}")
-    print("=" * 120)
+    matched_ckpts = []
+    for task_id, activity_name in id_activity.items():
+        if wanted_tasks is not None and str(task_id) not in wanted_tasks:
+            continue
+        pattern = os.path.join(args.ckpt_dir, f"recipe_{task_id}_*.pth.tar")
+        matches = sorted(glob.glob(pattern))
+        if matches:
+            matched_ckpts.append((str(task_id), activity_name, matches[0]))
+
+    if not matched_ckpts:
+        raise FileNotFoundError(f"No matching checkpoints found in {args.ckpt_dir} (tasks={args.tasks})")
+
+    print("=" * 132)
+    print(
+        f" AEM COMPONENT ABLATION STUDY | Tasks: {len(matched_ckpts)} | "
+        f"Split: {os.path.basename(split_file) + '[' + args.split_subset + ']' if split_file else 'original (error_samples_processed.json)'}"
+    )
+    print("=" * 132)
     print("Loading EVA02-CLIP-L-14-336 for Mistake Detection & Prompt Prefix evaluation...")
     clip_model = load_clip_model(device)
 
-    # Aggregate containers per ablation mode across all evaluated tasks
-    mode_TaskResults = {m_key: [] for m_key, _ in ABLATION_MODES}
+    mode_task_results = {m_key: [] for m_key, _ in ABLATION_MODES}
 
-    for task_id, ckpt_path in ckpts.items():
-        recipe_name = CCP4D_RECIPES.get(task_id, f"Task {task_id}")
+    for task_id, recipe_name, ckpt_path in matched_ckpts:
         cfg = load_config(args.config)
-        cfg["dataset"]["task"] = str(task_id)
-        cfg = _resolve_root_dir(cfg)
+        cfg["dataset"]["task"] = task_id
+        root_dir = _resolve_root_dir(cfg)
 
-        if split_file and os.path.isfile(split_file):
+        if split_file and cfg["dataset_name"] == "CaptainCook4D":
+            allowed_vids = load_split_video_ids(split_file, subset=args.split_subset, task=task_id)
             test_dataset = CombinedCaptainCook4DDataset(
-                split_Status="test",
-                root_dir=cfg["dataset"]["root_dir"],
-                annotation_dir=cfg["dataset"]["annotation_dir"],
-                feat_Folders=cfg["dataset"]["feat_folder"],
-                task=str(task_id),
-                fps=cfg["dataset"]["fps"],
-                split_file=split_file,
-                split_subset=args.split_subset,
+                root_dir=root_dir,
+                task=task_id,
+                features_subdir=cfg["dataset"].get("features_subdir", "I3D"),
+                default_fps=cfg["dataset"].get("default_fps", 10),
+                allowed_vids=allowed_vids,
             )
-            if len(test_dataset) == 0:
-                continue
-            cfg["dataset"]["num_classes"] = test_dataset.get_Wait_num_classes()
-            cfg["model"]["num_classes"] = cfg["dataset"]["num_classes"]
-            test_loader = make_data_loader(test_dataset, False, None, 1, cfg["loader"]["num_workers"])
+            test_loader = torch.utils.data.DataLoader(
+                test_dataset,
+                batch_size=1,
+                shuffle=False,
+                num_workers=cfg["loader"]["num_workers"],
+                collate_fn=lambda batch: batch,
+            )
         else:
-            test_dataset = make_dataset(cfg["dataset_name"], False, cfg["dataset"], "test")
-            if len(test_dataset) == 0:
-                continue
-            cfg["dataset"]["num_classes"] = test_dataset.get_Wait_num_classes()
-            cfg["model"]["num_classes"] = cfg["dataset"]["num_classes"]
-            test_loader = make_data_loader(test_dataset, False, None, 1, cfg["loader"]["num_workers"])
+            test_dataset = make_dataset(
+                cfg["dataset_name"], False, None, cfg["test_split"], False, **cfg["dataset"]
+            )
+            test_loader = make_data_loader(
+                test_dataset, False, None, 1, cfg["loader"]["num_workers"]
+            )
+
+        if len(test_dataset) == 0:
+            print(f"  [Skip] Task {task_id} ({recipe_name}): 0 test videos matched.")
+            continue
+
+        action_tokens, num_classes = action_tokenize_ccp4d(
+            clip_model, task_id, activity_step_collection, step_id_mapping, device=device
+        )
+        cfg["model"]["num_classes"] = num_classes
+        cfg["model"]["backbone_type"] = "convTransformer"
 
         model = make_meta_arch(cfg["model_name"], **cfg["model"]).to(device)
-        load_checkpoint_weights(model, ckpt_path, device)
+        model = load_weights(model, ckpt_path, use_ema=args.use_ema)
         model.eval()
 
-        action_tokens = build_action_tokens(cfg, clip_model, device)
-
-        print(f"  -> Evaluating Task {task_id:>2s} ({recipe_name:<30s}) | {len(test_dataset)} videos across {len(ABLATION_MODES)} ablation modes...")
+        print(f"  -> Task {task_id:>2s} ({recipe_name:<31s}) | {len(test_dataset)} videos | running {len(ABLATION_MODES)} ablation modes...")
         for m_key, _ in ABLATION_MODES:
             res = run_ablation_mode(model, test_loader, clip_model, action_tokens, mode=m_key)
-            mode_TaskResults[m_key].append(res)
+            mode_task_results[m_key].append(res)
 
     # Compute macro averages across evaluated tasks for each mode
     summary = {}
     for m_key, m_label in ABLATION_MODES:
-        res_list = mode_TaskResults[m_key]
+        res_list = mode_task_results[m_key]
         if not res_list:
             continue
         w_list = [r["with_bg"] for r in res_list]
         nb_list = [r["without_bg"] for r in res_list]
         ed_list = [r["ed_metrics"] for r in res_list if r["ed_metrics"] is not None]
 
-        tot_pred_w = sum(x["num_pred_segs"] for x in w_list)
-        tot_gt_w = sum(x["num_gt_segs"] for x in w_list)
+        tot_pred_w = sum(x["pred_segs"] for x in w_list)
+        tot_gt_w = sum(x["gt_segs"] for x in w_list)
 
         summary[m_key] = {
             "label": m_label,
-            "acc_w": float(np.mean([x["acc"] for x in w_list])),
-            "miou_w": float(np.mean([x["miou"] for x in w_list])),
-            "edit_w": float(np.mean([x["edit"] for x in w_list])),
-            "f1_50_w": float(np.mean([x["f1@50"] for x in w_list])),
+            "acc_w": float(np.mean([x["Accuracy"] for x in w_list])),
+            "miou_w": float(np.mean([x["mIoU"] for x in w_list])),
+            "edit_w": float(np.mean([x["Edit"] for x in w_list])),
+            "f1_50_w": float(np.mean([x["F1@50"] for x in w_list])),
             "frag_w": tot_pred_w / max(1, tot_gt_w),
-            "acc_nb": float(np.mean([x["acc"] for x in nb_list])),
-            "f1_50_nb": float(np.mean([x["f1@50"] for x in nb_list])),
+            "acc_nb": float(np.mean([x["Accuracy"] for x in nb_list])),
+            "f1_50_nb": float(np.mean([x["F1@50"] for x in nb_list])),
             "prec": float(np.mean([x["precision"] for x in ed_list])) if ed_list else 0.0,
             "auc": float(np.mean([x["auc"] for x in ed_list])) if ed_list else 0.0,
             "eda": float(np.mean([x["eda"] for x in ed_list])) if ed_list else 0.0,
@@ -358,16 +371,16 @@ def main():
 
     base = summary["full"]
 
-    print("\n" + "=" * 132)
-    print(f" ABLATION STUDY SUMMARY ACROSS {len(mode_TaskResults['full'])} RECIPES")
-    print("=" * 132)
+    print("\n" + "=" * 134)
+    print(f" ABLATION STUDY SUMMARY ACROSS {len(mode_task_results['full'])} RECIPES")
+    print("=" * 134)
     header = (
         f"{'Ablation Variant / Component Tested':<54} | "
         f"{'Acc(w/BG)':>9} {'Edit':>6} {'F1@50':>6} {'Frag':>6} | "
         f"{'Prec':>6} {'AUC':>6} {'(ΔAUC)':>8} {'EDA':>6} {'(ΔEDA)':>8}"
     )
     print(header)
-    print("-" * 132)
+    print("-" * 134)
 
     for m_key, _ in ABLATION_MODES:
         if m_key not in summary:
@@ -379,20 +392,20 @@ def main():
         d_eda_str = f"{d_eda:+6.2f}%" if m_key != "full" else "  base "
 
         if m_key == "tuned_nms":
-            print("-" * 132)
+            print("-" * 134)
         print(
             f"{s['label']:<54} | "
             f"{s['acc_w']:>8.2f}% {s['edit_w']:>6.2f} {s['f1_50_w']:>6.2f} {s['frag_w']:>5.2f}x | "
             f"{s['prec']:>6.2f} {s['auc']:>6.2f} {d_auc_str:>8} {s['eda']:>6.2f} {d_eda_str:>8}"
         )
 
-    print("-" * 132)
+    print("-" * 134)
     print(
         f"{'Paper Reported Reference (ICLR 2026 Table 1 & 2)':<54} | "
         f"{'69.70%':>9} {'--':>6} {'--':>6} {'--':>6} | "
         f"{'68.10':>6} {'62.50':>6} {'':>8} {'71.90':>6} {'':>8}"
     )
-    print("=" * 132)
+    print("=" * 134)
 
 
 if __name__ == "__main__":
