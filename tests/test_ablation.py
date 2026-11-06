@@ -63,7 +63,11 @@ from test_segmentation import (
 def ablate_model_context(model, mode: str):
     """Temporarily patch `model` according to the requested ablation `mode`.
 
-    Supported modes:
+    Note: `mode` may optionally be prefixed with `'oracle_'` (e.g., `'oracle_no_rel_effect'`,
+    `'oracle_bypass_effect'`), which strips the prefix here so the exact same component
+    ablation is applied on top of Ground-Truth (Oracle) segment boundaries & labels.
+
+    Supported component modes (both Predicted and `oracle_*`):
       - 'full'            : Original unmodified AEM pipeline (Paper Baseline).
       - 'no_rel_effect'   : Zero out `relation_effect_token` (keep only State Effect `e_s`).
       - 'no_state_effect' : Zero out `state_effect_token` (keep only Spatial Relation `e_r`).
@@ -74,11 +78,15 @@ def ablate_model_context(model, mode: str):
       - 'no_pos_enc'      : Disable sinusoidal `pos_encoding` inside `Effect_Model.feature_enhancer`.
       - 'no_prompt_prefix': Disable the 4 learnable prefix tokens `action_model.prompt_prefix`
                             (use plain frozen EVA02-CLIP text embeddings).
+      - 'bypass_and_no_prefix': Bypass `effect_model.inference` AND disable `prompt_prefix`
+                            (pure ActionFormer FPN features + frozen EVA02-CLIP text).
       - 'tuned_nms'       : Increase `test_min_score` (0.001 -> 0.05) and reduce `test_max_seg_num`
-                            (200 -> 40) to suppress severe over-segmentation.
-      - 'oracle_gt_segs'  : Use ground-truth segment boundaries & labels instead of predicted
-                            segments to measure the true upper bound of Effect + Action_Model.
+                            (200 -> 40) to suppress severe over-segmentation (Predicted Segs only).
     """
+    base_mode = mode[len("oracle_"):] if mode.startswith("oracle_") else mode
+    if base_mode == "gt_segs":
+        base_mode = "full"
+
     fe = model.effect_model.feature_enhancer
     am = model.action_model
 
@@ -90,7 +98,7 @@ def ablate_model_context(model, mode: str):
     orig_max_seg = model.test_max_seg_num
 
     try:
-        if mode in ("no_rel_effect", "no_state_effect", "zero_both_tokens"):
+        if base_mode in ("no_rel_effect", "no_state_effect", "zero_both_tokens"):
             def patched_enhance(feature_segments, effect_model_mask, device):
                 effect_segments = [
                     feature_segments[i] for i in range(len(feature_segments)) if effect_model_mask[i]
@@ -119,9 +127,9 @@ def ablate_model_context(model, mode: str):
                 state_effect_token = fe.state_effect_proj(effect_tokens)
                 relation_effect_token = fe.relation_effect_proj(effect_tokens)
 
-                if mode in ("no_state_effect", "zero_both_tokens"):
+                if base_mode in ("no_state_effect", "zero_both_tokens"):
                     state_effect_token = torch.zeros_like(state_effect_token)
-                if mode in ("no_rel_effect", "zero_both_tokens"):
+                if base_mode in ("no_rel_effect", "zero_both_tokens"):
                     relation_effect_token = torch.zeros_like(relation_effect_token)
 
                 segment_features = transformed[:, 1:, :]
@@ -141,18 +149,24 @@ def ablate_model_context(model, mode: str):
 
             fe.enhance_feature = patched_enhance
 
-        elif mode == "bypass_effect":
+        elif base_mode == "bypass_effect":
             def bypass_infer(feature_segments, action_labels, device):
                 return feature_segments
             model.effect_model.inference = bypass_infer
 
-        elif mode == "no_pos_enc":
+        elif base_mode == "no_pos_enc":
             fe.pos_encoding = None
 
-        elif mode == "no_prompt_prefix":
+        elif base_mode == "no_prompt_prefix":
             am.prompt_prefix = None
 
-        elif mode == "tuned_nms":
+        elif base_mode == "bypass_and_no_prefix":
+            def bypass_infer(feature_segments, action_labels, device):
+                return feature_segments
+            model.effect_model.inference = bypass_infer
+            am.prompt_prefix = None
+
+        elif base_mode == "tuned_nms":
             model.test_min_score = 0.05
             model.test_max_seg_num = 40
 
@@ -168,19 +182,48 @@ def ablate_model_context(model, mode: str):
 
 
 @torch.no_grad()
-def run_ablation_mode(model, test_loader, clip_model, action_tokens, mode: str):
-    """Run inference on `test_loader` under the specified ablation `mode`."""
+def run_ablation_mode(
+    model,
+    test_loader,
+    clip_model,
+    action_tokens,
+    mode: str,
+    cached_videos=None,
+):
+    """Run inference on `test_loader` (or pre-extracted `cached_videos`) under `mode`."""
     all_gt_frames = []
     all_pred_frames = []
     ed_results = {}
+    use_oracle_segs = mode.startswith("oracle_")
 
     with ablate_model_context(model, mode):
-        for video_list in test_loader:
-            if mode == "oracle_gt_segs":
-                # Use Ground-Truth segment boundaries & labels instead of ActionFormer predictions
+        iterable = cached_videos if cached_videos is not None else test_loader
+        for item in iterable:
+            if cached_videos is not None:
+                video_list = item["video_list"]
+                fpn_feats = item["fpn_feats"]
+                fpn_masks = item["fpn_masks"]
+                points = item["points"]
+                cls_prob_logits = item["cls_prob_logits"]
+                out_offsets = item["out_offsets"]
+                base_seg_results = item["base_seg_results"]
+            else:
+                video_list = item
                 fpn_feats, fpn_masks, points, cls_prob_logits, out_offsets = model.extract_feature(video_list)
+                base_seg_results = None
+
+            if mode == "tuned_nms" or base_seg_results is None:
                 results = model.segment_video(video_list, points, fpn_masks, cls_prob_logits, out_offsets)
-                video_id, vid_result = list(results.items())[0]
+            else:
+                results = {
+                    vid: {k: (v.clone() if isinstance(v, torch.Tensor) else v) for k, v in res.items()}
+                    for vid, res in base_seg_results.items()
+                }
+
+            video_id, vid_result = list(results.items())[0]
+
+            if use_oracle_segs:
+                # Use Ground-Truth segment boundaries & labels instead of ActionFormer predictions
                 vinfo = video_list[0]
                 gt_segs = vinfo["segments"].cpu()
                 gt_labels = vinfo["labels"].cpu()
@@ -208,7 +251,27 @@ def run_ablation_mode(model, test_loader, clip_model, action_tokens, mode: str):
                 )
                 vid_result["segment_action_sim"] = action_similarity.cpu()
             else:
-                results = model.inference(video_list, clip_model, action_tokens)
+                action_segments = [vid_result["segments"]]
+                segment_feature = model.generate_segment_features(fpn_feats, fpn_masks, action_segments)
+                enhanced_segment_feature = model.effect_model.inference(
+                    feature_segments=segment_feature,
+                    action_labels=[vid_result["segment_action_pred"]],
+                    device=model.device,
+                )
+                segment_vis_feature = torch.stack([seg.mean(dim=0) for seg in enhanced_segment_feature], dim=0)
+                action_similarity = model.action_model.inference(
+                    clip_model=clip_model,
+                    segment_vis_feature=segment_vis_feature,
+                    action_tokens=action_tokens,
+                    action_labels=[vid_result["segment_action_pred"]],
+                    device=model.device,
+                )
+                for vid, result in results.items():
+                    repeat_num = (result["segments"][:, 1] - result["segments"][:, 0] + 1).long().clamp(min=1)
+                    result["framewise_action_sim"] = torch.repeat_interleave(
+                        action_similarity.cpu(), repeats=repeat_num
+                    )
+                    result["segment_action_sim"] = action_similarity.cpu()
 
             for vid, res in results.items():
                 all_gt_frames.append(res["frame_action_label"].clone().cpu().numpy())
@@ -225,17 +288,30 @@ def run_ablation_mode(model, test_loader, clip_model, action_tokens, mode: str):
     }
 
 
-ABLATION_MODES = [
-    ("full",             "1. Full AEM Model (Paper Baseline)"),
-    ("no_rel_effect",    "2. w/o Spatial Relation Effect (e_r = 0, State Only)"),
-    ("no_state_effect",  "3. w/o Object State Effect (e_s = 0, Relation Only)"),
-    ("zero_both_tokens", "4. w/o Both Effect Tokens (e_s = 0 & e_r = 0)"),
-    ("bypass_effect",    "5. Bypass Effect_Model Completely (Raw FPN Seg Feat)"),
-    ("no_pos_enc",       "6. w/o Effect Transformer Positional Encoding"),
-    ("no_prompt_prefix", "7. w/o Learnable Prompt Prefix (Frozen CLIP Text)"),
-    ("tuned_nms",        "8. Tuned NMS Post-Processing (min_score=0.05, max=40)"),
-    ("oracle_gt_segs",   "9. Oracle GT Segments (Upper Bound of Effect+Detector)"),
+PRED_ABLATION_MODES = [
+    ("full",                 "1. Full AEM Model (Paper Baseline)"),
+    ("no_rel_effect",        "2. w/o Spatial Relation Effect (e_r = 0, State Only)"),
+    ("no_state_effect",      "3. w/o Object State Effect (e_s = 0, Relation Only)"),
+    ("zero_both_tokens",     "4. w/o Both Effect Tokens (e_s = 0 & e_r = 0)"),
+    ("bypass_effect",        "5. Bypass Effect_Model Completely (Raw FPN Seg Feat)"),
+    ("no_pos_enc",           "6. w/o Effect Transformer Positional Encoding"),
+    ("no_prompt_prefix",     "7. w/o Learnable Prompt Prefix (Frozen CLIP Text)"),
+    ("bypass_and_no_prefix", "8. Bypass Effect_Model + w/o Prompt Prefix"),
+    ("tuned_nms",            "9. Tuned NMS Post-Processing (min_score=0.05, max=40)"),
 ]
+
+ORACLE_ABLATION_MODES = [
+    ("oracle_full",                 "10. [Oracle GT Segs] Full AEM (Effect + Action_Model)"),
+    ("oracle_no_rel_effect",        "11. [Oracle GT Segs] w/o Spatial Relation (e_r = 0)"),
+    ("oracle_no_state_effect",      "12. [Oracle GT Segs] w/o Object State (e_s = 0)"),
+    ("oracle_zero_both_tokens",     "13. [Oracle GT Segs] w/o Both Tokens (e_s=0 & e_r=0)"),
+    ("oracle_bypass_effect",        "14. [Oracle GT Segs] Bypass Effect_Model Completely"),
+    ("oracle_no_pos_enc",           "15. [Oracle GT Segs] w/o Effect Positional Encoding"),
+    ("oracle_no_prompt_prefix",     "16. [Oracle GT Segs] w/o Learnable Prompt Prefix"),
+    ("oracle_bypass_and_no_prefix", "17. [Oracle GT Segs] Bypass Effect + w/o Prompt Prefix"),
+]
+
+ABLATION_MODES = PRED_ABLATION_MODES + ORACLE_ABLATION_MODES
 
 
 def main():
@@ -251,7 +327,11 @@ def main():
                         help="Path to split JSON, or 'none' for paper's original error-only test set")
     parser.add_argument("--split_subset", type=str, default="test")
     parser.add_argument("--use_ema", action="store_true")
+    parser.add_argument("--only_oracle", action="store_true",
+                        help="Only run the 8 Oracle Ground-Truth Segmentation ablation modes")
     args = parser.parse_args()
+
+    active_modes = ORACLE_ABLATION_MODES if args.only_oracle else ABLATION_MODES
 
     _ = fix_random_seed(0, include_cuda=True)
     split_file = None if (args.split_file and args.split_file.lower() == "none") else args.split_file
@@ -337,14 +417,40 @@ def main():
         model = load_weights(model, ckpt_path, use_ema=args.use_ema)
         model.eval()
 
-        print(f"  -> Task {task_id:>2s} ({recipe_name:<31s}) | {len(test_dataset)} videos | running {len(ABLATION_MODES)} ablation modes...")
-        for m_key, _ in ABLATION_MODES:
-            res = run_ablation_mode(model, test_loader, clip_model, action_tokens, mode=m_key)
+        # Pre-extract ActionFormer FPN features & default segmentation once per video
+        # so evaluating 17 ablation modes is ~10x faster and bit-exact.
+        cached_videos = []
+        with torch.no_grad():
+            for video_list in test_loader:
+                fpn_feats, fpn_masks, points, cls_prob_logits, out_offsets = model.extract_feature(video_list)
+                base_seg_results = model.segment_video(
+                    video_list, points, fpn_masks, cls_prob_logits, out_offsets
+                )
+                cached_videos.append({
+                    "video_list": video_list,
+                    "fpn_feats": fpn_feats,
+                    "fpn_masks": fpn_masks,
+                    "points": points,
+                    "cls_prob_logits": cls_prob_logits,
+                    "out_offsets": out_offsets,
+                    "base_seg_results": base_seg_results,
+                })
+
+        print(f"  -> Task {task_id:>2s} ({recipe_name:<31s}) | {len(test_dataset)} videos | running {len(active_modes)} ablation modes...")
+        for m_key, _ in active_modes:
+            res = run_ablation_mode(
+                model,
+                test_loader,
+                clip_model,
+                action_tokens,
+                mode=m_key,
+                cached_videos=cached_videos,
+            )
             mode_task_results[m_key].append(res)
 
     # Compute macro averages across evaluated tasks for each mode
     summary = {}
-    for m_key, m_label in ABLATION_MODES:
+    for m_key, m_label in active_modes:
         res_list = mode_task_results[m_key]
         if not res_list:
             continue
@@ -369,43 +475,89 @@ def main():
             "eda": float(np.mean([x["eda"] for x in ed_list])) if ed_list else 0.0,
         }
 
-    base = summary["full"]
+    base_oracle = summary.get("oracle_full")
+    base_pred = summary.get("full", base_oracle)
+    num_eval_recipes = len(mode_task_results[active_modes[0][0]])
 
-    print("\n" + "=" * 134)
-    print(f" ABLATION STUDY SUMMARY ACROSS {len(mode_task_results['full'])} RECIPES")
-    print("=" * 134)
-    header = (
-        f"{'Ablation Variant / Component Tested':<54} | "
-        f"{'Acc(w/BG)':>9} {'Edit':>6} {'F1@50':>6} {'Frag':>6} | "
-        f"{'Prec':>6} {'AUC':>6} {'(ΔAUC)':>8} {'EDA':>6} {'(ΔEDA)':>8}"
+    if not args.only_oracle and "full" in summary:
+        print("\n" + "=" * 138)
+        print(f" TABLE A: ABLATION ON PREDICTED SEGMENTS (ActionFormer Segs) ACROSS {num_eval_recipes} RECIPES")
+        print("=" * 138)
+        header_a = (
+            f"{'Ablation Variant (Predicted Segmentation)':<54} | "
+            f"{'Acc(w/BG)':>9} {'Edit':>6} {'F1@50':>6} {'Frag':>6} | "
+            f"{'Prec':>6} {'(ΔPrec)':>8} {'AUC':>6} {'(ΔAUC)':>8} {'EDA':>6} {'(ΔEDA)':>8}"
+        )
+        print(header_a)
+        print("-" * 138)
+
+        for m_key, _ in PRED_ABLATION_MODES:
+            if m_key not in summary:
+                continue
+            s = summary[m_key]
+            d_prec = s["prec"] - base_pred["prec"]
+            d_auc = s["auc"] - base_pred["auc"]
+            d_eda = s["eda"] - base_pred["eda"]
+            d_prec_str = f"{d_prec:+6.2f}%" if m_key != "full" else "  base "
+            d_auc_str = f"{d_auc:+6.2f}%" if m_key != "full" else "  base "
+            d_eda_str = f"{d_eda:+6.2f}%" if m_key != "full" else "  base "
+
+            if m_key == "tuned_nms":
+                print("-" * 138)
+            print(
+                f"{s['label']:<54} | "
+                f"{s['acc_w']:>8.2f}% {s['edit_w']:>6.2f} {s['f1_50_w']:>6.2f} {s['frag_w']:>5.2f}x | "
+                f"{s['prec']:>6.2f} {d_prec_str:>8} {s['auc']:>6.2f} {d_auc_str:>8} {s['eda']:>6.2f} {d_eda_str:>8}"
+            )
+
+    print("\n" + "=" * 138)
+    print(f" TABLE B: ABLATION ON ORACLE GROUND-TRUTH SEGMENTS (100% Perfect Segs) ACROSS {num_eval_recipes} RECIPES")
+    print("=" * 138)
+    header_b = (
+        f"{'Ablation Variant (Oracle GT Segmentation)':<54} | "
+        f"{'Prec':>6} {'(Δ vs Orcl)':>11} {'AUC':>6} {'(Δ vs Orcl)':>11} {'EDA':>6} {'(Δ vs Orcl)':>11} | "
+        f"{'Gain vs Pred':>14}"
     )
-    print(header)
-    print("-" * 134)
+    print(header_b)
+    print("-" * 138)
 
-    for m_key, _ in ABLATION_MODES:
-        if m_key not in summary:
+    paired_keys = [
+        ("oracle_full",                 "full"),
+        ("oracle_no_rel_effect",        "no_rel_effect"),
+        ("oracle_no_state_effect",      "no_state_effect"),
+        ("oracle_zero_both_tokens",     "zero_both_tokens"),
+        ("oracle_bypass_effect",        "bypass_effect"),
+        ("oracle_no_pos_enc",           "no_pos_enc"),
+        ("oracle_no_prompt_prefix",     "no_prompt_prefix"),
+        ("oracle_bypass_and_no_prefix", "bypass_and_no_prefix"),
+    ]
+    for o_key, p_key in paired_keys:
+        if o_key not in summary:
             continue
-        s = summary[m_key]
-        d_auc = s["auc"] - base["auc"]
-        d_eda = s["eda"] - base["eda"]
-        d_auc_str = f"{d_auc:+6.2f}%" if m_key != "full" else "  base "
-        d_eda_str = f"{d_eda:+6.2f}%" if m_key != "full" else "  base "
+        s = summary[o_key]
+        d_prec = s["prec"] - base_oracle["prec"]
+        d_auc = s["auc"] - base_oracle["auc"]
+        d_eda = s["eda"] - base_oracle["eda"]
+        d_prec_str = f"{d_prec:+6.2f}%" if o_key != "oracle_full" else "    base   "
+        d_auc_str = f"{d_auc:+6.2f}%" if o_key != "oracle_full" else "    base   "
+        d_eda_str = f"{d_eda:+6.2f}%" if o_key != "oracle_full" else "    base   "
+        if p_key in summary:
+            gain_str = f"AUC {s['auc'] - summary[p_key]['auc']:+6.2f}%"
+        else:
+            gain_str = f"{'N/A (Oracle)':>12}"
 
-        if m_key == "tuned_nms":
-            print("-" * 134)
         print(
             f"{s['label']:<54} | "
-            f"{s['acc_w']:>8.2f}% {s['edit_w']:>6.2f} {s['f1_50_w']:>6.2f} {s['frag_w']:>5.2f}x | "
-            f"{s['prec']:>6.2f} {s['auc']:>6.2f} {d_auc_str:>8} {s['eda']:>6.2f} {d_eda_str:>8}"
+            f"{s['prec']:>6.2f} {d_prec_str:>11} {s['auc']:>6.2f} {d_auc_str:>11} {s['eda']:>6.2f} {d_eda_str:>11} | "
+            f"{gain_str:>14}"
         )
 
-    print("-" * 134)
+    print("-" * 138)
     print(
         f"{'Paper Reported Reference (ICLR 2026 Table 1 & 2)':<54} | "
-        f"{'69.70%':>9} {'--':>6} {'--':>6} {'--':>6} | "
-        f"{'68.10':>6} {'62.50':>6} {'':>8} {'71.90':>6} {'':>8}"
+        f"{'68.10':>6} {'':>11} {'62.50':>6} {'':>11} {'71.90':>6} {'':>11} |"
     )
-    print("=" * 134)
+    print("=" * 138)
 
 
 if __name__ == "__main__":
